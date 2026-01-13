@@ -1,0 +1,8 @@
+FastAPI
+uvicorn
+psycopg2-binary
+pydantic
+sqlalchemy
+alembic
+httpx
+python-dotenv
