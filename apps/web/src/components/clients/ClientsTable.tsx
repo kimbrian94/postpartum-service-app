@@ -489,7 +489,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     setDialogOpen(true);
   };
 
-  const handleUpdateClient = (updatedClient: Client) => {
+  const handleUpdateClient = (updatedClient: Partial<Client>) => {
     setDialogOpen(false);
     
     // Trigger parent refresh to get latest data from server
