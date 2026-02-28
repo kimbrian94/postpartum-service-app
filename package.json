@@ -2,21 +2,11 @@
   "name": "postpartum-service-app",
   "private": true,
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/*"
   ],
   "scripts": {
-    "install": "npm install --workspaces",
     "build": "npm run build --workspace=apps/web",
     "dev": "npm run dev --workspace=apps/web",
     "start": "npm run start --workspace=apps/web"
-  },
-  "devDependencies": {
-    "@types/react": "^19.2.8",
-    "eslint": "^7.32.0",
-    "prettier": "^2.5.1"
-  },
-  "dependencies": {
-    "react": "^19.2.3"
   }
 }
