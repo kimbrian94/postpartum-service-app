@@ -20,6 +20,7 @@ out/
 
 # Production
 .env
+.env.local
 .env.*.local
 
 # Misc

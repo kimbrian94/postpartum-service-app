@@ -1,13 +1,27 @@
-import React from 'react';
-import Layout from './layout';
+'use client';
 
-const HomePage = () => {
-    return (
-        <Layout>
-            <h1 className="text-3xl font-bold">Welcome to the Postpartum Service Management Application</h1>
-            <p className="mt-4">This application helps manage postpartum services effectively.</p>
-        </Layout>
-    );
-};
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { isAuthenticated } from '@/lib/auth';
 
-export default HomePage;
+export default function HomePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect to login if not authenticated, otherwise go to clients
+    if (isAuthenticated()) {
+      router.push('/clients');
+    } else {
+      router.push('/login');
+    }
+  }, [router]);
+
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
+        <p className="mt-4 text-gray-600">Redirecting...</p>
+      </div>
+    </div>
+  );
+}

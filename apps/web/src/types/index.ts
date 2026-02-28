@@ -7,14 +7,6 @@ export type Appointment = {
   notes?: string;
 };
 
-export type Client = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  address?: string;
-};
-
 export type Service = {
   id: string;
   name: string;
