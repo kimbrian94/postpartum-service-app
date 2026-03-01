@@ -671,6 +671,10 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
 
   return (
     <div className="w-full h-full flex flex-col">
+      {/* TEMPORARY VERSION CHECK - REMOVE AFTER CONFIRMING */}
+      <div className="bg-blue-500 text-white text-xs px-2 py-1 text-center font-bold">
+        VERSION: YEAR_FILTER_v3 - {new Date().toISOString()}
+      </div>
       <div className="flex items-center justify-between py-4 flex-shrink-0">
         <Input
           placeholder="Search clients..."
