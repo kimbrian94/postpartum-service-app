@@ -671,7 +671,6 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
 
   return (
     <div className="w-full h-full flex flex-col">
-      
       <div className="flex items-center justify-between py-4 flex-shrink-0">
         <Input
           placeholder="Search clients..."
