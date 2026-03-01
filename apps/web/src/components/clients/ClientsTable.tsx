@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Check, X, ChevronDown, MoreHorizontal, Edit } from 'lucide-react';
+import { ArrowUpDown, Check, X, ChevronDown, Edit, Copy, FileText } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Client } from '@/lib/api';
 import { ClientDetailsDialog } from './ClientDetailsDialog';
+import { useToast } from '@/components/ui/use-toast';
 
 // Column grouping configuration
 const columnGroups = {
@@ -156,7 +157,7 @@ export const columns: ColumnDef<Client>[] = [
     cell: ({ row }) => {
       const status = row.getValue('status') as string;
       return (
-        <Badge variant={statusVariants[status] || 'default'} className="whitespace-nowrap border shadow-sm">
+        <Badge variant={statusVariants[status] || 'default'} className="whitespace-nowrap border shadow-sm font-semibold text-sm">
           {statusLabels[status] || status}
         </Badge>
       );
@@ -466,6 +467,43 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   });
   const [selectedClient, setSelectedClient] = React.useState<Client | null>(null);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; client: Client } | null>(null);
+  const [exportData, setExportData] = React.useState<string | null>(null);
+  const [selectedYears, setSelectedYears] = React.useState<number[]>([]);
+
+  const { toast } = useToast();
+
+  // Extract unique years from due dates
+  const availableYears = React.useMemo(() => {
+    const years = new Set<number>();
+    data.forEach((client) => {
+      if (client.due_date) {
+        const year = new Date(client.due_date).getFullYear();
+        if (!isNaN(year)) {
+          years.add(year);
+        }
+      }
+    });
+    return Array.from(years).sort((a, b) => a - b);
+  }, [data]);
+
+  // Filter data by selected years
+  const filteredData = React.useMemo(() => {
+    if (selectedYears.length === 0) {
+      return data;
+    }
+    return data.filter((client) => {
+      if (!client.due_date) return false;
+      const year = new Date(client.due_date).getFullYear();
+      return selectedYears.includes(year);
+    });
+  }, [data, selectedYears]);
+
+  const toggleYear = (year: number) => {
+    setSelectedYears((prev) =>
+      prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year]
+    );
+  };
 
   // Helper functions for column management
   const toggleAllColumns = (visible: boolean) => {
@@ -498,11 +536,6 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     setColumnVisibility(newVisibility);
   };
 
-  const handleRowClick = (client: Client) => {
-    setSelectedClient(client);
-    setDialogOpen(true);
-  };
-
   const handleUpdateClient = (updatedClient: Partial<Client>) => {
     setDialogOpen(false);
     
@@ -512,40 +545,111 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     }
   };
 
-  // Create columns with actions
-  const columnsWithActions: ColumnDef<Client>[] = React.useMemo(
-    () => [
-      ...columns,
-      {
-        id: 'actions',
-        enableHiding: false,
-        cell: ({ row }) => {
-          const client = row.original;
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => handleRowClick(client)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Client
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        },
-      },
-    ],
-    []
-  );
+  const handleRowClick = (event: React.MouseEvent, client: Client) => {
+    event.preventDefault();
+    
+    // Close existing menu if clicking on a different row
+    if (contextMenu && contextMenu.client.id !== client.id) {
+      setContextMenu(null);
+      return;
+    }
+    
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      client,
+    });
+  };
+
+  const handleExportClient = (client: Client) => {
+    const exportText = `Client Information\n${'='.repeat(50)}\n\n` +
+      `Name (English): ${client.name_english || 'N/A'}\n` +
+      `Name (Korean): ${client.name_korean || 'N/A'}\n` +
+      `Email: ${client.email}\n` +
+      `Phone: ${client.phone_number || 'N/A'}\n` +
+      `Status: ${statusLabels[client.status] || client.status}\n\n` +
+      `Due Date: ${client.due_date ? new Date(client.due_date.split('T')[0] + 'T12:00:00').toLocaleDateString() : 'N/A'}\n` +
+      `Delivery Date: ${client.actual_delivery_date ? new Date(client.actual_delivery_date.split('T')[0] + 'T12:00:00').toLocaleDateString() : 'N/A'}\n` +
+      `Twins: ${client.is_twins ? 'Yes' : 'No'}\n\n` +
+      `Residential Area: ${client.residential_area || 'N/A'}\n` +
+      `Home Address: ${client.home_address || 'N/A'}\n` +
+      `Parking Available: ${client.visitor_parking_available ? 'Yes' : 'No'}\n` +
+      `Has Pets: ${client.has_pets ? 'Yes' : 'No'}\n` +
+      `Other Household Members: ${client.other_household_members || 'N/A'}\n` +
+      `Pregnancy Number: ${client.pregnancy_number || 'N/A'}\n\n` +
+      `Cultural Background: ${client.cultural_background || 'N/A'}\n` +
+      `Familiar with Korean Food: ${client.familiar_with_korean_food ? 'Yes' : 'No'}\n` +
+      `Preferred Cuisine: ${client.preferred_cuisine || 'N/A'}\n` +
+      `Preferred Language: ${client.preferred_language || 'N/A'}\n\n` +
+      `Services Requested:\n` +
+      `- Postpartum Care: ${client.postpartum_care_requested ? `Yes (${client.postpartum_care_days_per_week || 0} days/week for ${client.postpartum_care_weeks || 0} weeks)` : 'No'}\n` +
+      `- Night Nurse: ${client.night_nurse_requested ? `Yes (${client.night_nurse_weeks || 0} weeks)` : 'No'}\n` +
+      `- Special Massage: ${client.special_massage_requested ? `Yes (${client.special_massage_sessions || 0} sessions)` : 'No'}\n` +
+      `- Facial Massage: ${client.facial_massage_requested ? `Yes (${client.facial_massage_sessions || 0} sessions)` : 'No'}\n` +
+      `- RMT Massage: ${client.rmt_massage_requested ? 'Yes' : 'No'}\n\n` +
+      `Referral Source: ${client.referral_source || 'N/A'}\n` +
+      `Contact Platform: ${client.contact_platform || 'N/A'}\n` +
+      `Platform Username: ${client.platform_username || 'N/A'}\n` +
+      `Referrer Name: ${client.referrer_name || 'N/A'}\n\n` +
+      `Internal Notes: ${client.internal_notes || 'N/A'}\n\n` +
+      `Created: ${new Date(client.created_at).toLocaleString()}\n` +
+      `Last Updated: ${new Date(client.updated_at).toLocaleString()}`;
+    
+    setExportData(exportText);
+    setContextMenu(null);
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (exportData) {
+      await navigator.clipboard.writeText(exportData);
+      toast({
+        description: '✓ Copied to clipboard',
+        variant: 'success',
+      });
+      setExportData(null);
+    }
+  };
+
+  const handleEditClient = (client: Client) => {
+    setSelectedClient(client);
+    setDialogOpen(true);
+    setContextMenu(null);
+  };
+
+  // Close context menu on various interactions
+  React.useEffect(() => {
+    const handleCloseMenu = () => setContextMenu(null);
+    
+    if (contextMenu) {
+      // Close on scroll
+      const scrollContainer = document.querySelector('.overflow-auto');
+      scrollContainer?.addEventListener('scroll', handleCloseMenu);
+      
+      // Close on any click outside
+      document.addEventListener('click', handleCloseMenu);
+      
+      // Close on escape key
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') handleCloseMenu();
+      };
+      document.addEventListener('keydown', handleEscape);
+      
+      return () => {
+        scrollContainer?.removeEventListener('scroll', handleCloseMenu);
+        document.removeEventListener('click', handleCloseMenu);
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }
+  }, [contextMenu]);
+
+  // Close menu when user starts searching or changing filters
+  React.useEffect(() => {
+    setContextMenu(null);
+  }, [searchInput, columnFilters, sorting, pagination, selectedYears]);
 
   const table = useReactTable({
-    data,
-    columns: columnsWithActions,
+    data: filteredData,
+    columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -574,12 +678,42 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
           onChange={(event) => setSearchInput(event.target.value)}
           className="max-w-sm"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
-              Columns <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
+        <div className="flex items-center gap-3 ml-auto">
+          {/* Year Filter */}
+          {availableYears.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium whitespace-nowrap">Filter by Year:</span>
+              <div className="flex gap-2 flex-wrap">
+                {availableYears.map((year) => (
+                  <Button
+                    key={year}
+                    variant={selectedYears.includes(year) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleYear(year)}
+                    className="h-8"
+                  >
+                    {year}
+                  </Button>
+                ))}
+                {selectedYears.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedYears([])}
+                    className="h-8 text-muted-foreground"
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Columns <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[280px]">
             {/* Quick Actions */}
             <div className="p-2 space-y-1">
@@ -662,6 +796,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
             </ScrollArea>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
       
       <div className="rounded-md border flex-1 min-h-0 flex flex-col">
@@ -691,7 +826,8 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
-                    className="hover:bg-muted/50"
+                    className="hover:bg-muted/50 cursor-pointer"
+                    onClick={(e) => handleRowClick(e, row.original)}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
@@ -706,7 +842,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
               ) : (
                 <TableRow>
                   <TableCell
-                    colSpan={columnsWithActions.length}
+                    colSpan={columns.length}
                     className="h-24 text-center"
                   >
                     No results.
@@ -759,6 +895,59 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
           </div>
         </div>
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50"
+          style={{
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+          }}
+        >
+          <button
+            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => handleExportClient(contextMenu.client)}
+          >
+            <FileText className="h-4 w-4" />
+            Export Client Info
+          </button>
+          <button
+            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+            onClick={() => handleEditClient(contextMenu.client)}
+          >
+            <Edit className="h-4 w-4" />
+            Edit Client
+          </button>
+        </div>
+      )}
+
+      {/* Export Data Dialog */}
+      {exportData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setExportData(null)}>
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Client Information</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyToClipboard}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy to Clipboard
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              <pre className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded">
+                {exportData}
+              </pre>
+            </ScrollArea>
+            <div className="mt-4 flex justify-end">
+              <Button onClick={() => setExportData(null)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ClientDetailsDialog
         client={selectedClient}
