@@ -3,12 +3,40 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
-  // Force new build ID to invalidate all caches
+  
+  // Use Railway's git commit SHA for reliable build identification
   generateBuildId: async () => {
-    const buildId = 'deploy-' + Date.now();
-    console.log(`[Build] Generating new Build ID: ${buildId}`); // Logs to Railway Build Logs
-    return buildId;;
+    const buildId = process.env.RAILWAY_GIT_COMMIT_SHA || `local-${Date.now()}`;
+    console.log(`[Build] Build ID: ${buildId}`);
+    return buildId;
   },
+  
+  // Smart caching strategy
+  async headers() {
+    return [
+      {
+        // Static assets: cache forever (they have unique hashes)
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // HTML pages: always check for updates on refresh
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
+  
   images: {
     remotePatterns: [
       {
@@ -17,6 +45,7 @@ const nextConfig = {
       },
     ],
   },
+  
   experimental: {
     turbo: {
       root: path.resolve(__dirname, '../..'),
