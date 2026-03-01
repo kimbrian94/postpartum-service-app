@@ -11,26 +11,23 @@ const nextConfig = {
     return buildId;
   },
   
-  // Smart caching strategy
+  // Aggressive no-cache strategy
   async headers() {
     return [
       {
-        // Static assets: cache forever (they have unique hashes)
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        // HTML pages: always check for updates on refresh
         source: '/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=0, must-revalidate',
+            value: 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache',
+          },
+          {
+            key: 'Expires',
+            value: '0',
           },
         ],
       },
