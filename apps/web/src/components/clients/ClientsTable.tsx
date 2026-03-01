@@ -186,7 +186,14 @@ export const columns: ColumnDef<Client>[] = [
       );
     },
     cell: ({ row }) => {
-      const date = new Date(row.getValue('due_date'));
+      const dueDate = row.getValue('due_date') as string | null;
+      if (!dueDate) return <div>N/A</div>;
+      
+      // Extract just the date part to avoid timezone conversion
+      const dateOnly = dueDate.split('T')[0]; // "2025-03-15"
+      // Add noon time to avoid edge cases
+      const date = new Date(dateOnly + 'T12:00:00');
+      
       return <div>{date.toLocaleDateString()}</div>;
     },
   },
@@ -204,8 +211,15 @@ export const columns: ColumnDef<Client>[] = [
       );
     },
     cell: ({ row }) => {
-      const date = row.getValue('actual_delivery_date') as string;
-      return <div>{date ? new Date(date).toLocaleDateString() : 'N/A'}</div>;
+      const deliveryDate = row.getValue('actual_delivery_date') as string | null;
+      if (!deliveryDate) return <div>N/A</div>;
+      
+      // Extract just the date part to avoid timezone conversion
+      const dateOnly = deliveryDate.split('T')[0];
+      // Add noon time to avoid edge cases
+      const date = new Date(dateOnly + 'T12:00:00');
+      
+      return <div>{date.toLocaleDateString()}</div>;
     },
   },
   {
