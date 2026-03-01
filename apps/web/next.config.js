@@ -5,8 +5,9 @@ const nextConfig = {
   reactStrictMode: true,
   // Force new build ID to invalidate all caches
   generateBuildId: async () => {
-    // Use Railway commit SHA or timestamp
-    return process.env.RAILWAY_GIT_COMMIT_SHA || `build-${Date.now()}`;
+    const buildId = 'deploy-' + Date.now();
+    console.log(`[Build] Generating new Build ID: ${buildId}`); // Logs to Railway Build Logs
+    return buildId;;
   },
   images: {
     remotePatterns: [
