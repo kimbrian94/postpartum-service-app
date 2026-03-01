@@ -19,11 +19,31 @@ export const viewport: Viewport = {
 };
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const buildId = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_BUILD_ID || 'local';
+    const timestamp = new Date().toISOString();
+    
     return (
         <html lang="en">
           <body className="overflow-hidden">
             <ConditionalLayout>{children}</ConditionalLayout>
             <Toaster />
+            
+            {/* DEBUG: Build version indicator - REMOVE AFTER TESTING */}
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              background: 'red',
+              color: 'white',
+              padding: '4px 8px',
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              zIndex: 99999,
+              textAlign: 'center'
+            }}>
+              BUILD: {buildId.slice(0, 7)} | RENDERED: {timestamp}
+            </div>
           </body>
         </html>
     );
