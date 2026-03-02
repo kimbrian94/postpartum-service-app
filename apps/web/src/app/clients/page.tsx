@@ -32,16 +32,12 @@ const ClientsPage = () => {
 
   return (
     <div className="h-full max-w-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4 md:mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and view all client information
-          </p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Clients</h1>
         </div>
-        <Button onClick={fetchClients} disabled={loading} variant="outline">
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
+        <Button onClick={fetchClients} disabled={loading} variant="outline" size="icon" className="h-9 w-9">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </Button>
       </div>
 

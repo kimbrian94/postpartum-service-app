@@ -13,11 +13,27 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Check, X, ChevronDown, Edit, Copy, FileText } from 'lucide-react';
+import { ArrowUpDown, Check, X, ChevronDown, Edit, Copy, FileText, SlidersHorizontal } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -469,7 +485,11 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; client: Client } | null>(null);
   const [exportData, setExportData] = React.useState<string | null>(null);
-  const [selectedYears, setSelectedYears] = React.useState<number[]>([]);
+  const [selectedYears, setSelectedYears] = React.useState<number[]>(() => {
+    const currentYear = new Date().getFullYear();
+    return [currentYear];
+  });
+  const [filterSheetOpen, setFilterSheetOpen] = React.useState(false);
 
   const { toast } = useToast();
 
@@ -484,7 +504,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
         }
       }
     });
-    return Array.from(years).sort((a, b) => a - b);
+    return Array.from(years).sort((a, b) => b - a); // Descending order
   }, [data]);
 
   // Filter data by selected years
@@ -600,13 +620,35 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   };
 
   const handleCopyToClipboard = async () => {
-    if (exportData) {
-      await navigator.clipboard.writeText(exportData);
+    if (!exportData) return;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(exportData);
+      } else {
+        // Fallback for environments where navigator.clipboard is unavailable
+        const textarea = document.createElement('textarea');
+        textarea.value = exportData;
+        textarea.style.position = 'fixed'; // Avoid scrolling to bottom
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
       toast({
         description: '✓ Copied to clipboard',
         variant: 'success',
       });
       setExportData(null);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast({
+        description: 'Failed to copy to clipboard',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -621,9 +663,8 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     const handleCloseMenu = () => setContextMenu(null);
     
     if (contextMenu) {
-      // Close on scroll
-      const scrollContainer = document.querySelector('.overflow-auto');
-      scrollContainer?.addEventListener('scroll', handleCloseMenu);
+      // Close on any scroll event (using capture phase to detect scroll in any element)
+      window.addEventListener('scroll', handleCloseMenu, true);
       
       // Close on any click outside
       document.addEventListener('click', handleCloseMenu);
@@ -632,10 +673,11 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
       const handleEscape = (e: KeyboardEvent) => {
         if (e.key === 'Escape') handleCloseMenu();
       };
+      
       document.addEventListener('keydown', handleEscape);
       
       return () => {
-        scrollContainer?.removeEventListener('scroll', handleCloseMenu);
+        window.removeEventListener('scroll', handleCloseMenu, true);
         document.removeEventListener('click', handleCloseMenu);
         document.removeEventListener('keydown', handleEscape);
       };
@@ -646,6 +688,32 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   React.useEffect(() => {
     setContextMenu(null);
   }, [searchInput, columnFilters, sorting, pagination, selectedYears]);
+
+  // Custom global filter function for Korean character support
+  const globalFilterFn = React.useCallback((row: any, columnId: string, filterValue: string) => {
+    if (!filterValue) return true;
+    
+    const searchLower = filterValue.toLowerCase();
+    const client = row.original;
+    
+    // Search in multiple fields including Korean characters
+    const searchableFields = [
+      client.name_korean,
+      client.name_english,
+      client.email,
+      client.phone_number,
+      client.status,
+      client.residential_area,
+      client.home_address,
+      client.referral_source,
+      client.cultural_background,
+      client.preferred_language,
+    ];
+    
+    return searchableFields.some(field => 
+      field && String(field).toLowerCase().includes(searchLower)
+    );
+  }, []);
 
   const table = useReactTable({
     data: filteredData,
@@ -659,6 +727,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
+    globalFilterFn: globalFilterFn,
     state: {
       sorting,
       columnFilters,
@@ -671,53 +740,53 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
 
   return (
     <div className="w-full h-full flex flex-col">
-      
-      <div className="flex items-center justify-between py-4 flex-shrink-0">
+      {/* Top Bar - Responsive */}
+      <div className="flex items-center gap-2 py-3 md:py-4 flex-shrink-0">
         <Input
-          placeholder="Search clients..."
+          placeholder="Search..."
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          className="max-w-sm"
+          className="flex-1 md:max-w-sm"
         />
-        <div className="flex items-center gap-3 ml-auto">
-          {/* Year Filter */}
+        
+        {/* Desktop: Show filters inline */}
+        <div className="hidden md:flex items-center gap-2 md:ml-auto">
+          {/* Year Filter Chips */}
           {availableYears.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium whitespace-nowrap">Filter by Year:</span>
-              <div className="flex gap-2 flex-wrap">
-                {availableYears.map((year) => (
-                  <Button
-                    key={year}
-                    variant={selectedYears.includes(year) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleYear(year)}
-                    className="h-8"
-                  >
-                    {year}
-                  </Button>
-                ))}
-                {selectedYears.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedYears([])}
-                    className="h-8 text-muted-foreground"
-                  >
-                    Clear All
-                  </Button>
-                )}
-              </div>
-            </div>
+            <>
+              <Button
+                variant={selectedYears.length === 0 ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setSelectedYears([])}
+                className="h-9"
+              >
+                All
+              </Button>
+              {availableYears.map((year) => (
+                <Button
+                  key={year}
+                  variant={selectedYears.includes(year) ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => toggleYear(year)}
+                  className="h-9"
+                >
+                  {year}
+                </Button>
+              ))}
+              <Separator orientation="vertical" className="h-6 mx-1" />
+            </>
           )}
+
+          {/* Columns dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" size="sm">
                 Columns <ChevronDown className="ml-2 h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[280px]">
-            {/* Quick Actions */}
-            <div className="p-2 space-y-1">
+            <DropdownMenuContent align="end" className="w-[280px]">
+              {/* Quick Actions */}
+              <div className="p-2 space-y-1">
               <Button
                 variant="ghost"
                 size="sm"
@@ -795,12 +864,213 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                 ))}
               </div>
             </ScrollArea>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+
+        {/* Mobile: Filter Sheet */}
+        <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="md:hidden">
+              <SlidersHorizontal className="h-4 w-4" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[300px] sm:w-[400px] flex flex-col">
+            <SheetHeader>
+              <SheetTitle>Filter & Sort</SheetTitle>
+              <SheetDescription>
+                Manage client list view
+              </SheetDescription>
+            </SheetHeader>
+            
+            <div className="mt-6 space-y-6">
+              {/* Sort Options */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Sort By</h4>
+                <Select
+                  value={`${sorting[0]?.id || 'due_date'}-${sorting[0]?.desc ? 'desc' : 'asc'}`}
+                  onValueChange={(value) => {
+                    const [id, direction] = value.split('-');
+                    setSorting([{ id, desc: direction === 'desc' }]);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select sort order" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="due_date-asc">Due Date (Earliest First)</SelectItem>
+                    <SelectItem value="due_date-desc">Due Date (Latest First)</SelectItem>
+                    <SelectItem value="name_korean-asc">Name (Korean base)</SelectItem>
+                    <SelectItem value="name_english-asc">Name (English A-Z)</SelectItem>
+                    <SelectItem value="status-asc">Status</SelectItem>
+                    <SelectItem value="created_at-desc">Date Created (Newest First)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Year Filter */}
+              {availableYears.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium">Filter by Year</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={selectedYears.length === 0 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedYears([])}
+                      className="h-9"
+                    >
+                      All Years
+                    </Button>
+                    {availableYears.map((year) => (
+                      <Button
+                        key={year}
+                        variant={selectedYears.includes(year) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleYear(year)}
+                        className="h-9"
+                      >
+                        {year}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
+
+      {/* Active Filters Badge (Mobile) */}
+      {selectedYears.length > 0 && (
+        <div className="flex md:hidden items-center gap-2 pb-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Year:</span>
+          {selectedYears.map((year) => (
+            <Badge key={year} variant="secondary" className="text-xs h-6">
+              {year}
+              <button
+                onClick={() => toggleYear(year)}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
       
-      <div className="rounded-md border flex-1 min-h-0 flex flex-col">
+      {/* Mobile: Card List View */}
+      <div className="md:hidden flex-1 overflow-auto space-y-3 pb-4">
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => {
+            const client = row.original;
+            return (
+              <Card
+                key={row.id}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => {
+                  setSelectedClient(client);
+                  setDialogOpen(true);
+                }}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base truncate">
+                        {client.name_korean || client.name_english || 'N/A'}
+                      </h3>
+                      {client.name_korean && client.name_english && (
+                        <p className="text-sm text-muted-foreground truncate">
+                          {client.name_english}
+                        </p>
+                      )}
+                    </div>
+                    <Badge 
+                      variant={statusVariants[client.status] || 'default'} 
+                      className="text-xs font-semibold flex-shrink-0"
+                    >
+                      {statusLabels[client.status] || client.status}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {/* Contact Info */}
+                  <div className="space-y-1">
+                    {client.email && (
+                      <p className="text-muted-foreground truncate">{client.email}</p>
+                    )}
+                    {client.phone_number && (
+                      <p className="text-muted-foreground">{client.phone_number}</p>
+                    )}
+                  </div>
+
+                  {/* Key Info Grid */}
+                  {(client.due_date || client.residential_area || client.pregnancy_number || client.is_twins) && (
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t">
+                      {client.due_date && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Due Date</p>
+                          <p className="font-medium">
+                            {new Date(client.due_date.split('T')[0] + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                      )}
+                      {client.residential_area && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Area</p>
+                          <p className="font-medium truncate">{client.residential_area}</p>
+                        </div>
+                      )}
+                      {client.pregnancy_number && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Baby #</p>
+                          <p className="font-medium">{client.pregnancy_number}</p>
+                        </div>
+                      )}
+                      {client.is_twins && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Twins</p>
+                          <p className="font-medium">Yes</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Services Summary */}
+                  {(client.postpartum_care_requested || client.night_nurse_requested || client.special_massage_requested) && (
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-muted-foreground mb-1">Services</p>
+                      <div className="flex flex-wrap gap-1">
+                        {client.postpartum_care_requested && (
+                          <Badge variant="outline" className="text-xs">
+                            Postpartum Care
+                          </Badge>
+                        )}
+                        {client.night_nurse_requested && (
+                          <Badge variant="outline" className="text-xs">
+                            Night Nurse
+                          </Badge>
+                        )}
+                        {client.special_massage_requested && (
+                          <Badge variant="outline" className="text-xs">
+                            Special Massage
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            No clients found
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: Table View */}
+      <div className="hidden md:flex rounded-md border flex-1 min-h-0 flex-col">
         <div className="custom-scrollbar flex-1 overflow-auto">
           <Table>
             <TableHeader className="sticky top-0 bg-white z-10 shadow-sm after:absolute after:bottom-0 after:left-0 after:right-0 after:h-px after:bg-border">
@@ -855,15 +1125,19 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
         </div>
       </div>
       
-      <div className="flex items-center justify-between space-x-2 py-4">
-        <div className="flex-1 text-sm text-muted-foreground">
-          Showing {table.getState().pagination.pageSize === data.length ? 'all' : `${table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} to ${Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} of`} {table.getFilteredRowModel().rows.length} client(s)
+      {/* Pagination - Simplified on mobile */}
+      <div className="flex items-center justify-between space-x-2 py-3 md:py-4 flex-shrink-0">
+        <div className="text-sm text-muted-foreground">
+          <span className="hidden sm:inline">
+            Showing {table.getState().pagination.pageSize === data.length ? 'all' : `${table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-${Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, table.getFilteredRowModel().rows.length)} of`}
+          </span>
+          {' '}{table.getFilteredRowModel().rows.length} client{table.getFilteredRowModel().rows.length !== 1 ? 's' : ''}
         </div>
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground">Rows per page:</span>
+        <div className="flex items-center space-x-2 md:space-x-6">
+          <div className="hidden md:flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Rows:</span>
             <select
-              className="h-8 w-[100px] rounded-md border border-input bg-background px-2 py-1 text-sm"
+              className="h-8 w-[80px] rounded-md border border-input bg-background px-2 py-1 text-sm"
               value={table.getState().pagination.pageSize === data.length ? 'all' : table.getState().pagination.pageSize}
               onChange={(e) => {
                 const value = e.target.value;
@@ -876,20 +1150,22 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
               <option value="all">All</option>
             </select>
           </div>
-          <div className="space-x-2">
+          <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
+              className="h-8"
             >
-              Previous
+              Prev
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
+              className="h-8"
             >
               Next
             </Button>
@@ -900,25 +1176,25 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50"
+          className="fixed bg-white border border-gray-200 rounded-md shadow-lg py-2 z-50 min-w-[200px]"
           style={{
             left: `${contextMenu.x}px`,
             top: `${contextMenu.y}px`,
           }}
         >
           <button
-            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
-            onClick={() => handleExportClient(contextMenu.client)}
-          >
-            <FileText className="h-4 w-4" />
-            Export Client Info
-          </button>
-          <button
-            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+            className="w-full px-5 py-3 text-left text-base hover:bg-gray-100 flex items-center gap-3"
             onClick={() => handleEditClient(contextMenu.client)}
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-5 w-5" />
             Edit Client
+          </button>
+          <button
+            className="w-full px-5 py-3 text-left text-base hover:bg-gray-100 flex items-center gap-3"
+            onClick={() => handleExportClient(contextMenu.client)}
+          >
+            <FileText className="h-5 w-5" />
+            Export Client Info
           </button>
         </div>
       )}

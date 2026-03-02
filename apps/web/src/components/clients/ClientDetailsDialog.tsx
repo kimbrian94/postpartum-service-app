@@ -44,6 +44,8 @@ import {
   Globe, 
   MessageSquare, 
   Briefcase,
+  FileText,
+  Copy,
 } from 'lucide-react';
 
 interface ClientDetailsDialogProps {
@@ -60,6 +62,15 @@ const SectionHeader = ({ icon: Icon, title }: { icon: React.ElementType; title: 
   </div>
 );
 
+const statusLabels: Record<string, string> = {
+  pending_deposit: 'Pending Deposit',
+  deposit_received: 'Deposit Received',
+  full_payment_received: 'Full Payment Complete',
+  service_in_progress: 'Service In Progress',
+  service_completed: 'Service Completed',
+  cancelled: 'Cancelled',
+};
+
 export function ClientDetailsDialog({
   client,
   open,
@@ -70,7 +81,80 @@ export function ClientDetailsDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [exportData, setExportData] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const handleExport = () => {
+    if (!client) return;
+    
+    const exportText = `Client Information\n${'='.repeat(50)}\n\n` +
+      `Name (English): ${client.name_english || 'N/A'}\n` +
+      `Name (Korean): ${client.name_korean || 'N/A'}\n` +
+      `Email: ${client.email}\n` +
+      `Phone: ${client.phone_number || 'N/A'}\n` +
+      `Status: ${statusLabels[client.status] || client.status}\n\n` +
+      `Due Date: ${client.due_date ? new Date(client.due_date.split('T')[0] + 'T12:00:00').toLocaleDateString() : 'N/A'}\n` +
+      `Delivery Date: ${client.actual_delivery_date ? new Date(client.actual_delivery_date.split('T')[0] + 'T12:00:00').toLocaleDateString() : 'N/A'}\n` +
+      `Twins: ${client.is_twins ? 'Yes' : 'No'}\n\n` +
+      `Residential Area: ${client.residential_area || 'N/A'}\n` +
+      `Home Address: ${client.home_address || 'N/A'}\n` +
+      `Parking Available: ${client.visitor_parking_available ? 'Yes' : 'No'}\n` +
+      `Has Pets: ${client.has_pets ? 'Yes' : 'No'}\n` +
+      `Other Household Members: ${client.other_household_members || 'N/A'}\n` +
+      `Pregnancy Number: ${client.pregnancy_number || 'N/A'}\n\n` +
+      `Cultural Background: ${client.cultural_background || 'N/A'}\n` +
+      `Familiar with Korean Food: ${client.familiar_with_korean_food ? 'Yes' : 'No'}\n` +
+      `Preferred Cuisine: ${client.preferred_cuisine || 'N/A'}\n` +
+      `Preferred Language: ${client.preferred_language || 'N/A'}\n\n` +
+      `Services Requested:\n` +
+      `- Postpartum Care: ${client.postpartum_care_requested ? `Yes (${client.postpartum_care_days_per_week || 0} days/week for ${client.postpartum_care_weeks || 0} weeks)` : 'No'}\n` +
+      `- Night Nurse: ${client.night_nurse_requested ? `Yes (${client.night_nurse_weeks || 0} weeks)` : 'No'}\n` +
+      `- Special Massage: ${client.special_massage_requested ? `Yes (${client.special_massage_sessions || 0} sessions)` : 'No'}\n` +
+      `- Facial Massage: ${client.facial_massage_requested ? `Yes (${client.facial_massage_sessions || 0} sessions)` : 'No'}\n` +
+      `- RMT Massage: ${client.rmt_massage_requested ? 'Yes' : 'No'}\n\n` +
+      `Referral Source: ${client.referral_source || 'N/A'}\n` +
+      `Contact Platform: ${client.contact_platform || 'N/A'}\n` +
+      `Platform Username: ${client.platform_username || 'N/A'}\n` +
+      `Referrer Name: ${client.referrer_name || 'N/A'}\n\n` +
+      `Internal Notes: ${client.internal_notes || 'N/A'}\n\n` +
+      `Created: ${new Date(client.created_at).toLocaleString()}\n` +
+      `Last Updated: ${new Date(client.updated_at).toLocaleString()}`;
+    
+    setExportData(exportText);
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (!exportData) return;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(exportData);
+      } else {
+        // Fallback for environments where navigator.clipboard is unavailable
+        const textarea = document.createElement('textarea');
+        textarea.value = exportData;
+        textarea.style.position = 'fixed'; // Avoid scrolling to bottom
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      toast({
+        description: '✓ Copied to clipboard',
+        variant: 'success',
+      });
+      setExportData(null);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast({
+        description: 'Failed to copy to clipboard',
+        variant: 'destructive',
+      });
+    }
+  };
 
   useEffect(() => {
     if (client && open) {
@@ -195,10 +279,39 @@ export function ClientDetailsDialog({
 
   if (!client) return null;
 
+  // If exportData is present, show ONLY the export dialog to avoid interaction issues
+  if (exportData) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]" onClick={() => setExportData(null)}>
+        <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Client Information</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyToClipboard}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Copy to Clipboard
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <pre className="whitespace-pre-wrap text-sm font-mono bg-gray-50 p-4 rounded">
+              {exportData}
+            </pre>
+          </ScrollArea>
+          <div className="mt-4 flex justify-end">
+            <Button onClick={() => setExportData(null)}>Close</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] p-0 gap-0">
-        <DialogHeader className="px-6 pt-6 pb-4 space-y-3">
+      <DialogContent className="max-w-5xl max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-4 space-y-3 flex-shrink-0">
           <DialogTitle className="text-2xl">
             {client.name_english || client.name_korean || `Client #${client.id}`}
           </DialogTitle>
@@ -228,9 +341,9 @@ export function ClientDetailsDialog({
           </div>
         </DialogHeader>
 
-        <Separator />
+        <Separator className="flex-shrink-0" />
         
-        <ScrollArea className="max-h-[calc(90vh-220px)]">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="space-y-6 px-6 py-4">
             {/* Basic Information */}
             <div className="space-y-4">
@@ -712,33 +825,43 @@ export function ClientDetailsDialog({
           </div>
         </ScrollArea>
 
-        <Separator />
+        <Separator className="flex-shrink-0" />
 
-        <DialogFooter className="px-6 py-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-            Cancel
+        <DialogFooter className="px-6 py-4 flex-col sm:flex-row gap-2 flex-shrink-0 bg-background">
+          <Button 
+            variant="outline" 
+            onClick={handleExport}
+            className="sm:mr-auto"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Export Info
           </Button>
-          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <AlertDialogTrigger asChild>
-              <Button disabled={isSubmitting}>
-                Save Changes
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Save changes?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will update the client record. Are you sure you want to continue?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleUpdate} disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : 'Yes, save'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              Cancel
+            </Button>
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <AlertDialogTrigger asChild>
+                <Button disabled={isSubmitting}>
+                  Save Changes
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Save changes?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will update the client record. Are you sure you want to continue?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleUpdate} disabled={isSubmitting}>
+                    {isSubmitting ? 'Saving...' : 'Yes, save'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
