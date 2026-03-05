@@ -64,6 +64,10 @@ if __name__ == "__main__":
     
     email = input("Enter email: ").strip()
     password = input("Enter password: ").strip()
+    password_confirm = input("Confirm password: ").strip()
+    if password != password_confirm:
+        print("❌ Passwords do not match!")
+        sys.exit(1)
     full_name = input("Enter full name (optional): ").strip() or None
     
     if not email or not password:

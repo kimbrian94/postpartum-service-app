@@ -7,7 +7,9 @@ from app.models.client import Client
 from app.models.user import User
 from app.schemas.client import ClientResponse, ClientCreate, ClientUpdate
 from app.core.security import get_current_user
+from app.core.logging_config import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 @router.get("/", response_model=List[ClientResponse])
@@ -46,6 +48,11 @@ def get_clients(
     query = query.order_by(Client.due_date.asc())
 
     clients = query.offset(skip).limit(limit).all()
+    logger.info(
+        f"Retrieved {len(clients)} clients | "
+        f"Filters: status={status}, search={search} | "
+        f"User: {current_user.email}"
+    )
     return clients
 
 
@@ -73,10 +80,14 @@ def create_client(
     """
     Create a new client record.
     """
+    logger.info(f"Creating new client: {client.email} | User: {current_user.email}")
+    
     db_client = Client(**client.model_dump())
     db.add(db_client)
     db.commit()
     db.refresh(db_client)
+    
+    logger.info(f"Client created successfully: ID={db_client.id}, Email={db_client.email}")
     return db_client
 
 
@@ -91,13 +102,17 @@ def update_client(
     Update an existing client record with comprehensive validation.
     Returns a list of validation errors if validation fails.
     """
+    logger.info(f"Updating client ID={client_id} | User: {current_user.email}")
+    
     # Find the client
     db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
+        logger.warning(f"Update failed: Client not found - ID={client_id}")
         raise HTTPException(status_code=404, detail="Client not found")
     
     # Get the update data
     update_data = client_update.model_dump(exclude_unset=True)
+    logger.debug(f"Update data for client {client_id}: {list(update_data.keys())}")
     
     # Collect all validation errors
     validation_errors = []
@@ -131,6 +146,10 @@ def update_client(
     
     # If there are validation errors, return them
     if validation_errors:
+        logger.warning(
+            f"Validation failed for client {client_id}: "
+            f"{len(validation_errors)} error(s)"
+        )
         raise HTTPException(
             status_code=422,
             detail={
@@ -146,8 +165,10 @@ def update_client(
     try:
         db.commit()
         db.refresh(db_client)
+        logger.info(f"Client updated successfully: ID={client_id}")
     except Exception as e:
         db.rollback()
+        logger.error(f"Failed to update client {client_id}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update client: {str(e)}"
@@ -165,10 +186,15 @@ def delete_client(
     """
     Delete a client record.
     """
+    logger.info(f"Deleting client ID={client_id} | User: {current_user.email}")
+    
     db_client = db.query(Client).filter(Client.id == client_id).first()
     if not db_client:
+        logger.warning(f"Delete failed: Client not found - ID={client_id}")
         raise HTTPException(status_code=404, detail="Client not found")
 
     db.delete(db_client)
     db.commit()
+    
+    logger.info(f"Client deleted successfully: ID={client_id}")
     return None

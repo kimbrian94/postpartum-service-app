@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from .clients import router as clients_router
 from .intake import router as intake_router
 from .auth import router as auth_router
+from .deposits import router as deposits_router
 
 router = APIRouter()
 
@@ -9,6 +10,7 @@ router = APIRouter()
 router.include_router(auth_router, tags=["Authentication"])
 router.include_router(clients_router, prefix="/clients", tags=["clients"])
 router.include_router(intake_router, prefix="/intake", tags=["intake"])
+router.include_router(deposits_router, tags=["deposits"])
 
 # Add more routes as needed:
 # from .appointments import router as appointments_router

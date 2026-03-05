@@ -82,6 +82,46 @@ export interface Client {
 export type ClientCreate = Omit<Client, 'id' | 'created_at' | 'updated_at'>;
 export type ClientUpdate = Partial<ClientCreate>;
 
+export interface DepositBreakdown {
+  service: string;
+  rate: number;
+  quantity: number;
+  unit: string;
+  subtotal: number;
+  notes?: string;
+}
+
+export interface DepositCalculation {
+  client_id: number;
+  client_name: string;
+  total_service_cost: number;
+  tax_amount: number;
+  cash_price_tax_amount?: number;
+  total_with_tax: number;
+  total_cash_price?: number;
+  deposit_percentage: number;
+  deposit_amount: number;
+  deposit_amount_cash_price?: number;
+  remaining_balance: number;
+  remaining_balance_cash_price?: number;
+  breakdown: DepositBreakdown[];
+  deposit_rule_applied: string;
+  cash_price_eligible: boolean;
+  cash_price_note?: string;
+  calculated_at: string;
+  admin_summary: string;
+}
+
+export interface DepositEmailPreview {
+  subject: string;
+  body: string;
+}
+
+export interface DepositResponse {
+  calculation: DepositCalculation;
+  email_preview: DepositEmailPreview;
+}
+
 export interface GetClientsParams {
   skip?: number;
   limit?: number;
@@ -173,6 +213,21 @@ export async function updateClient(id: number, payload: ClientUpdate): Promise<C
       data: errorData,
     };
     throw error;
+  }
+
+  return response.json();
+}
+
+export async function getDepositInfo(clientId: number): Promise<DepositResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/deposits/${clientId}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch deposit info: ${response.statusText}`);
   }
 
   return response.json();

@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Check, X, ChevronDown, Edit, Copy, FileText, SlidersHorizontal } from 'lucide-react';
+import { ArrowUpDown, Check, X, ChevronDown, Edit, Copy, FileText, SlidersHorizontal, DollarSign } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -51,7 +51,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Client } from '@/lib/api';
+import { Client, DepositResponse, getDepositInfo } from '@/lib/api';
 import { ClientDetailsDialog } from './ClientDetailsDialog';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -485,6 +485,8 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; client: Client } | null>(null);
   const [exportData, setExportData] = React.useState<string | null>(null);
+  const [depositInfo, setDepositInfo] = React.useState<DepositResponse | null>(null);
+  const [depositInfoLoading, setDepositInfoLoading] = React.useState(false);
   const [selectedYears, setSelectedYears] = React.useState<number[]>(() => {
     const currentYear = new Date().getFullYear();
     return [currentYear];
@@ -617,6 +619,24 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     
     setExportData(exportText);
     setContextMenu(null);
+  };
+
+  const handleViewDepositInfo = async (client: Client) => {
+    setDepositInfoLoading(true);
+    setContextMenu(null);
+    
+    try {
+      const depositData = await getDepositInfo(client.id);
+      setDepositInfo(depositData);
+    } catch (error) {
+      console.error('Failed to fetch deposit info:', error);
+      toast({
+        description: '✗ Failed to load deposit information',
+        variant: 'destructive',
+      });
+    } finally {
+      setDepositInfoLoading(false);
+    }
   };
 
   const handleCopyToClipboard = async () => {
@@ -1191,6 +1211,13 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
           </button>
           <button
             className="w-full px-5 py-3 text-left text-base hover:bg-gray-100 flex items-center gap-3"
+            onClick={() => handleViewDepositInfo(contextMenu.client)}
+          >
+            <DollarSign className="h-5 w-5" />
+            Deposit Info
+          </button>
+          <button
+            className="w-full px-5 py-3 text-left text-base hover:bg-gray-100 flex items-center gap-3"
             onClick={() => handleExportClient(contextMenu.client)}
           >
             <FileText className="h-5 w-5" />
@@ -1221,6 +1248,119 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
             </ScrollArea>
             <div className="mt-4 flex justify-end">
               <Button onClick={() => setExportData(null)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deposit Info Dialog */}
+      {depositInfo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDepositInfo(null)}>
+          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 md:p-6 border-b">
+              <h3 className="text-lg md:text-xl font-semibold">Deposit Information</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDepositInfo(null)}
+              >
+                ✕
+              </Button>
+            </div>
+
+            {/* Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+              <div className="space-y-6">
+                {/* Admin Summary */}
+                <div className="border rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+                    <h4 className="font-semibold text-sm uppercase text-gray-600">Admin Summary</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(depositInfo.calculation.admin_summary);
+                        toast({
+                          description: '✓ Admin summary copied',
+                          variant: 'success',
+                        });
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      <span className="hidden sm:inline">Copy</span>
+                    </Button>
+                  </div>
+                  <div className="p-3 overflow-x-auto">
+                    <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words">
+                      {depositInfo.calculation.admin_summary}
+                    </pre>
+                  </div>
+                </div>
+
+                {/* Email Preview */}
+                <div className="border rounded-lg">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+                    <h4 className="font-semibold text-sm uppercase text-gray-600">Email Preview</h4>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(depositInfo.email_preview.body);
+                        toast({
+                          description: '✓ Email preview copied',
+                          variant: 'success',
+                        });
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      <span className="hidden sm:inline">Copy</span>
+                    </Button>
+                  </div>
+                  <div className="p-3">
+                    <div className="mb-3 pb-3 border-b">
+                      <span className="font-semibold text-sm text-gray-700">Subject:</span>
+                      <span className="ml-2 text-sm">{depositInfo.email_preview.subject}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words">
+                        {depositInfo.email_preview.body}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 md:p-6 border-t bg-gray-50 flex flex-col sm:flex-row justify-end gap-2">
+              <Button 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  const fullText = `ADMIN SUMMARY\n${'='.repeat(80)}\n${depositInfo.calculation.admin_summary}\n\n\nEMAIL PREVIEW\n${'='.repeat(80)}\nSubject: ${depositInfo.email_preview.subject}\n\n${depositInfo.email_preview.body}`;
+                  navigator.clipboard.writeText(fullText);
+                  toast({
+                    description: '✓ All content copied',
+                    variant: 'success',
+                  });
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy All
+              </Button>
+              <Button className="w-full sm:w-auto" onClick={() => setDepositInfo(null)}>Close</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {depositInfoLoading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6">
+            <div className="flex items-center gap-3">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+              <span>Loading deposit information...</span>
             </div>
           </div>
         </div>

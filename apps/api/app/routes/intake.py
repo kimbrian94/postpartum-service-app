@@ -17,12 +17,16 @@ from app.utils.intake_utils import (
     clean_language,
     format_phone_number,
 )
+from app.core.logging_config import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
 @router.post("/", response_model=ServiceIntakeResponse)
 def create_intake(intake: ServiceIntakeRequest, db: Session = Depends(get_db)):
+    logger.info(f"Processing intake form submission for: {intake.email}")
+    
     try:
         due_date = parse_date(intake.due_date)
         pregnancy_number = parse_pregnancy_number(intake.pregnancy_number_text)
@@ -75,6 +79,12 @@ def create_intake(intake: ServiceIntakeRequest, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(client)
 
+        logger.info(
+            f"Intake form processed successfully: "
+            f"Client ID={client.id}, Email={client.email}, "
+            f"Name={client.name_english or client.name_korean}"
+        )
+
         return ServiceIntakeResponse(
             success=True,
             client_id=client.id,
@@ -83,7 +93,12 @@ def create_intake(intake: ServiceIntakeRequest, db: Session = Depends(get_db)):
 
     except ValueError as e:
         db.rollback()
+        logger.warning(f"Intake validation error for {intake.email}: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         db.rollback()
+        logger.error(
+            f"Intake processing failed for {intake.email}: {str(e)}",
+            exc_info=True
+        )
         raise HTTPException(status_code=500, detail=f"Error processing intake: {str(e)}")
