@@ -391,6 +391,203 @@ class TestDepositRules:
         assert result.deposit_rule_applied == "50% deposit"
 
 
+class TestDepositRulesComprehensive:
+    """Comprehensive tests for deposit rules including admin summary display."""
+    
+    def test_postpartum_3_week_contract_admin_summary(self, db_session):
+        """3-week postpartum contract: 1 week deposit - verify admin summary shows correct deposit."""
+        client = Client(
+            email="test@example.com",
+            name_english="Test Client",
+            due_date=date.today() + timedelta(days=30),
+            postpartum_care_requested=True,
+            postpartum_care_days_per_week=5,
+            postpartum_care_weeks=3
+        )
+        db_session.add(client)
+        db_session.commit()
+        
+        calculator = DepositCalculator(db_session)
+        result = calculator.calculate(client.id)
+        
+        # Verify calculation
+        assert result.total_service_cost == 3000.00  # 3 weeks × $1,000
+        assert result.deposit_amount == 1130.00  # 1 week ($1,000) + tax ($130)
+        assert "3-week contract: 1 week deposit" in result.deposit_rule_applied
+        
+        # Verify admin summary shows correct deposit
+        assert "Deposit (before tax):    $1,000.00" in result.admin_summary
+        assert "Deposit Tax:             $130.00" in result.admin_summary
+        assert "Total Deposit:           $1,130.00" in result.admin_summary
+    
+    def test_night_nurse_1_week_full_payment_admin_summary(self, db_session):
+        """1-week night nurse: Full payment - verify admin summary."""
+        client = Client(
+            email="test@example.com",
+            name_english="Test Client",
+            due_date=date.today() + timedelta(days=30),
+            night_nurse_requested=True,
+            night_nurse_weeks=1
+        )
+        db_session.add(client)
+        db_session.commit()
+        
+        calculator = DepositCalculator(db_session)
+        result = calculator.calculate(client.id)
+        
+        # Verify calculation
+        assert result.total_service_cost == 1400.00  # 1 week × $1,400
+        assert result.deposit_amount == 1582.00  # Full amount + tax
+        assert "1-week contract: Full payment required" in result.deposit_rule_applied
+        
+        # Verify admin summary
+        assert "Deposit (before tax):    $1,400.00" in result.admin_summary
+        assert "Deposit Tax:             $182.00" in result.admin_summary
+        assert "Total Deposit:           $1,582.00" in result.admin_summary
+    
+    def test_combined_postpartum_3_weeks_night_nurse_1_week(self, db_session):
+        """Combined: 3-week postpartum + 1-week night nurse - verify both rules apply."""
+        client = Client(
+            email="test@example.com",
+            name_english="Test Client",
+            due_date=date.today() + timedelta(days=30),
+            postpartum_care_requested=True,
+            postpartum_care_days_per_week=5,
+            postpartum_care_weeks=3,
+            night_nurse_requested=True,
+            night_nurse_weeks=1
+        )
+        db_session.add(client)
+        db_session.commit()
+        
+        calculator = DepositCalculator(db_session)
+        result = calculator.calculate(client.id)
+        
+        # Verify deposit rule mentions both
+        assert "Postpartum: 3-week contract: 1 week deposit" in result.deposit_rule_applied
+        assert "Night Nurse: 1-week contract: Full payment required" in result.deposit_rule_applied
+        
+        # Postpartum: 1 week deposit = $1,000 + $130 tax = $1,130
+        # Night Nurse: Full payment = $1,400 + $182 tax = $1,582
+        # Total deposit = $2,712
+        assert result.deposit_amount == 2712.00
+        
+        # Verify admin summary shows each service correctly
+        admin = result.admin_summary
+        assert "Postpartum Care:" in admin
+        assert "Deposit (before tax):    $1,000.00" in admin
+        assert "Night Nurse:" in admin
+        assert "Deposit (before tax):    $1,400.00" in admin
+    
+    def test_postpartum_8_weeks_4_week_maximum_deposit(self, db_session):
+        """8+ week postpartum: 4 week maximum deposit - verify admin summary."""
+        client = Client(
+            email="test@example.com",
+            name_english="Test Client",
+            due_date=date.today() + timedelta(days=30),
+            postpartum_care_requested=True,
+            postpartum_care_days_per_week=5,
+            postpartum_care_weeks=8
+        )
+        db_session.add(client)
+        db_session.commit()
+        
+        calculator = DepositCalculator(db_session)
+        result = calculator.calculate(client.id)
+        
+        # 8 weeks × $1,000 = $8,000
+        # Deposit: 4 weeks = $4,000 + $520 tax = $4,520
+        assert result.total_service_cost == 8000.00
+        assert result.deposit_amount == 4520.00
+        assert "8+ week contract: 4 week deposit (maximum)" in result.deposit_rule_applied
+        
+        # Verify admin summary
+        assert "Deposit (before tax):    $4,000.00" in result.admin_summary
+        assert "Deposit Tax:             $520.00" in result.admin_summary
+        assert "Total Deposit:           $4,520.00" in result.admin_summary
+    
+    def test_massage_always_50_percent_regardless_of_other_services(self, db_session):
+        """Massages always use 50% deposit even when combined with weekly services."""
+        client = Client(
+            email="test@example.com",
+            name_english="Test Client",
+            due_date=date.today() + timedelta(days=30),
+            postpartum_care_requested=True,
+            postpartum_care_days_per_week=5,
+            postpartum_care_weeks=3,
+            special_massage_requested=True,
+            special_massage_sessions=5,
+            facial_massage_requested=True,
+            facial_massage_sessions=5
+        )
+        db_session.add(client)
+        db_session.commit()
+        
+        calculator = DepositCalculator(db_session)
+        result = calculator.calculate(client.id)
+        
+        # Postpartum: $3,000, deposit $1,000 + $130 tax
+        # Special massage: $900, deposit $450 (50%, no tax)
+        # Facial massage: $500, deposit $250 (50%, no tax)
+        # Total deposit: $1,130 + $450 + $250 = $1,830
+        assert result.deposit_amount == 1830.00
+        
+        # Verify admin summary shows 50% for massages
+        admin = result.admin_summary
+        assert "Special Massage:" in admin
+        assert "Deposit (50%):           $450.00" in admin
+        assert "Facial Massage:" in admin
+        assert "Deposit (50%):           $250.00" in admin
+    
+    def test_night_nurse_3_weeks_1_week_deposit(self, db_session):
+        """3-week night nurse: 1 week deposit rule."""
+        client = Client(
+            email="test@example.com",
+            name_english="Test Client",
+            due_date=date.today() + timedelta(days=30),
+            night_nurse_requested=True,
+            night_nurse_weeks=3
+        )
+        db_session.add(client)
+        db_session.commit()
+        
+        calculator = DepositCalculator(db_session)
+        result = calculator.calculate(client.id)
+        
+        # 3 weeks × $1,400 = $4,200
+        # Deposit: 1 week = $1,400 + $182 tax = $1,582
+        assert result.total_service_cost == 4200.00
+        assert result.deposit_amount == 1582.00
+        assert "3-week contract: 1 week deposit" in result.deposit_rule_applied
+        
+        # Verify admin summary
+        assert "Deposit (before tax):    $1,400.00" in result.admin_summary
+    
+    def test_postpartum_6_days_per_week_deposit_calculation(self, db_session):
+        """3-week postpartum 6 days/week: deposit uses correct weekly rate."""
+        client = Client(
+            email="test@example.com",
+            name_english="Test Client",
+            due_date=date.today() + timedelta(days=30),
+            postpartum_care_requested=True,
+            postpartum_care_days_per_week=6,
+            postpartum_care_weeks=3
+        )
+        db_session.add(client)
+        db_session.commit()
+        
+        calculator = DepositCalculator(db_session)
+        result = calculator.calculate(client.id)
+        
+        # 3 weeks × $1,200 (6 days) = $3,600
+        # Deposit: 1 week = $1,200 + $156 tax = $1,356
+        assert result.total_service_cost == 3600.00
+        assert result.deposit_amount == 1356.00
+        
+        # Verify admin summary uses $1,200 for deposit
+        assert "Deposit (before tax):    $1,200.00" in result.admin_summary
+
+
 class TestTaxCalculations:
     """Test 13% HST tax calculations."""
     

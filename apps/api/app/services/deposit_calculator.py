@@ -8,6 +8,16 @@ from app.schemas.deposit import (
 )
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import datetime, timedelta
+from enum import Enum
+
+
+class DepositRule(Enum):
+    """Enum for deposit calculation rules."""
+    ONE_WEEK_FULL_DEPOSIT = "1-week contract: Full payment required"
+    THREE_WEEK_ONE_WEEK_DEPOSIT = "3-week contract: 1 week deposit"
+    EIGHT_PLUS_WEEK_FOUR_WEEK_DEPOSIT = "8+ week contract: 4 week deposit (maximum)"
+    FIFTY_PERCENT = "50% deposit"
+    FIFTY_PERCENT_DEFAULT = "50% default deposit"
 
 
 class DepositCalculator:
@@ -69,7 +79,7 @@ class DepositCalculator:
         
         return total_weeks
     
-    def _calculate_deposit_percentage(self, total_weeks: Decimal, weekly_cost: Decimal, total_cost: Decimal) -> tuple[Decimal, str]:
+    def _calculate_deposit_percentage(self, total_weeks: Decimal, weekly_cost: Decimal, total_cost: Decimal) -> tuple[Decimal, DepositRule]:
         """
         Calculate deposit percentage based on contract duration.
         
@@ -79,29 +89,29 @@ class DepositCalculator:
         - 8+ weeks: 4 week fee deposit (maximum)
         - Default: 50%
         
-        Returns: (deposit_amount, rule_description)
+        Returns: (deposit_amount, deposit_rule_enum)
         """
         if total_weeks <= 0:
             # No weekly services, use 50% default
-            return total_cost * Decimal("0.50"), "50% default deposit"
+            return total_cost * Decimal("0.50"), DepositRule.FIFTY_PERCENT_DEFAULT
         
         if total_weeks == 1:
             # 1 week contract: full amount
-            return total_cost, "1-week contract: Full payment required"
+            return total_cost, DepositRule.ONE_WEEK_FULL_DEPOSIT
         
         elif total_weeks == 3:
             # 3 week contract: 1 week amount only
             deposit = weekly_cost if weekly_cost > 0 else total_cost * Decimal("0.50")
-            return deposit, "3-week contract: 1 week deposit"
+            return deposit, DepositRule.THREE_WEEK_ONE_WEEK_DEPOSIT
         
         elif total_weeks >= 8:
             # 8+ weeks: 4 week fee deposit (maximum)
             four_week_cost = weekly_cost * Decimal("4") if weekly_cost > 0 else total_cost * Decimal("0.50")
-            return four_week_cost, "8+ week contract: 4 week deposit (maximum)"
+            return four_week_cost, DepositRule.EIGHT_PLUS_WEEK_FOUR_WEEK_DEPOSIT
         
         else:
             # Default: 50%
-            return total_cost * Decimal("0.50"), "50% deposit"
+            return total_cost * Decimal("0.50"), DepositRule.FIFTY_PERCENT
     
     def calculate(self, client_id: int) -> DepositCalculation:
         """Calculate deposit amount for a client."""
@@ -253,13 +263,13 @@ class DepositCalculator:
         
         # Build combined deposit rule description
         if postpartum_deposit_rule and night_nurse_deposit_rule:
-            deposit_rule = f"Postpartum: {postpartum_deposit_rule} | Night Nurse: {night_nurse_deposit_rule}"
+            deposit_rule = f"Postpartum: {postpartum_deposit_rule.value} | Night Nurse: {night_nurse_deposit_rule.value}"
         elif postpartum_deposit_rule:
-            deposit_rule = postpartum_deposit_rule
+            deposit_rule = postpartum_deposit_rule.value
         elif night_nurse_deposit_rule:
-            deposit_rule = night_nurse_deposit_rule
+            deposit_rule = night_nurse_deposit_rule.value
         else:
-            deposit_rule = "50% deposit"
+            deposit_rule = DepositRule.FIFTY_PERCENT.value
         
         # For non-taxable services (massages): always 50%
         massage_deposit = non_taxable_services_cost * Decimal("0.50")
@@ -308,6 +318,8 @@ class DepositCalculator:
             remaining_balance=float(remaining_balance),
             remaining_balance_cash_price=float(remaining_balance_cash_price) if remaining_balance_cash_price else None,
             deposit_rule=deposit_rule,
+            postpartum_deposit_rule=postpartum_deposit_rule,
+            night_nurse_deposit_rule=night_nurse_deposit_rule,
             cash_price_eligible=cash_price_eligible,
             cash_price_note=cash_price_note,
             client=client
@@ -349,6 +361,8 @@ class DepositCalculator:
         remaining_balance: float,
         remaining_balance_cash_price: float | None,
         deposit_rule: str,
+        postpartum_deposit_rule: DepositRule | None,
+        night_nurse_deposit_rule: DepositRule | None,
         cash_price_eligible: bool,
         cash_price_note: str | None,
         client
@@ -382,14 +396,21 @@ class DepositCalculator:
             payment_breakdown_lines.append(f"{item.service}:")
             payment_breakdown_lines.append(f"  Service Fee:             ${service_fee:,.2f}")
             
-            # Calculate deposit for this service
+            # Calculate deposit for this service using enum-based logic
             if is_taxable:
-                # Use deposit rule to determine deposit percentage/amount
-                if "Full payment required" in deposit_rule or "1-week" in deposit_rule:
+                # Determine which rule applies to this service
+                service_rule = None
+                if item.service == "Postpartum Care" and postpartum_deposit_rule:
+                    service_rule = postpartum_deposit_rule
+                elif item.service == "Night Nurse" and night_nurse_deposit_rule:
+                    service_rule = night_nurse_deposit_rule
+                
+                # Calculate deposit based on rule enum
+                if service_rule == DepositRule.ONE_WEEK_FULL_DEPOSIT:
                     service_deposit_before_tax = service_fee
-                elif "3-week" in deposit_rule:
+                elif service_rule == DepositRule.THREE_WEEK_ONE_WEEK_DEPOSIT:
                     service_deposit_before_tax = item.rate  # 1 week
-                elif "8+ week" in deposit_rule or "4 week deposit" in deposit_rule:
+                elif service_rule == DepositRule.EIGHT_PLUS_WEEK_FOUR_WEEK_DEPOSIT:
                     service_deposit_before_tax = item.rate * 4  # 4 weeks
                 else:
                     service_deposit_before_tax = service_fee * 0.5  # 50%
