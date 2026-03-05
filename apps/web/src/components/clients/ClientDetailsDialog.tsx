@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Client, updateClient } from '@/lib/api';
+import { Client, updateClient, getDepositInfo, type DepositResponse } from '@/lib/api';
 import { useToast } from '@/components/ui/use-toast';
 import {
   Dialog,
@@ -46,7 +46,9 @@ import {
   Briefcase,
   FileText,
   Copy,
+  MoreVertical,
 } from 'lucide-react';
+import { ClientActionsSheet } from './ClientActionsSheet';
 
 interface ClientDetailsDialogProps {
   client: Client | null;
@@ -82,6 +84,10 @@ export function ClientDetailsDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [exportData, setExportData] = useState<string | null>(null);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [depositInfo, setDepositInfo] = useState<DepositResponse | null>(null);
+  const [depositInfoLoading, setDepositInfoLoading] = useState(false);
+  const [showDepositInfo, setShowDepositInfo] = useState(false);
   const { toast } = useToast();
 
   const handleExport = () => {
@@ -147,6 +153,55 @@ export function ClientDetailsDialog({
         variant: 'success',
       });
       setExportData(null);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      toast({
+        description: 'Failed to copy to clipboard',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleViewDepositInfo = async () => {
+    if (!client?.id) return;
+
+    setDepositInfoLoading(true);
+    try {
+      const data = await getDepositInfo(client.id);
+      setDepositInfo(data);
+      setShowDepositInfo(true);
+    } catch (error: any) {
+      console.error('Failed to fetch deposit info:', error);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.detail || 'Failed to load deposit information.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDepositInfoLoading(false);
+    }
+  };
+
+  const handleCopyDepositText = async (text: string, successMessage: string) => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      toast({
+        description: successMessage,
+        variant: 'success',
+      });
     } catch (err) {
       console.error('Failed to copy:', err);
       toast({
@@ -309,16 +364,30 @@ export function ClientDetailsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col">
-        <DialogHeader className="px-6 pt-6 pb-4 space-y-3 flex-shrink-0">
-          <DialogTitle className="text-2xl">
-            {client.name_english || client.name_korean || `Client #${client.id}`}
-          </DialogTitle>
-          <DialogDescription className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            {client.email}
-          </DialogDescription>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[90vh] h-[90vh] p-0 gap-0 flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4 space-y-3 flex-shrink-0">
+            <div className="flex items-start gap-2">
+              {/* Mobile actions button - only visible on small screens */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="sm:hidden h-10 w-10 -ml-3"
+                onClick={() => setMobileActionsOpen(true)}
+              >
+                <MoreVertical className="h-6 w-6" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle className="text-2xl">
+                  {client.name_english || client.name_korean || `Client #${client.id}`}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2 mt-2">
+                  <Mail className="h-4 w-4" />
+                  {client.email}
+                </DialogDescription>
+              </div>
+            </div>
           
           <div className="space-y-2 pt-2">
             <Label htmlFor="current_status" className="text-base font-semibold">Current Status</Label>
@@ -831,12 +900,12 @@ export function ClientDetailsDialog({
           <Button 
             variant="outline" 
             onClick={handleExport}
-            className="sm:mr-auto"
+            className="hidden sm:inline-flex"
           >
             <FileText className="h-4 w-4 mr-2" />
             Export Info
           </Button>
-          <div className="flex gap-2 sm:ml-auto">
+          <div className="flex gap-2 ml-auto">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancel
             </Button>
@@ -865,5 +934,93 @@ export function ClientDetailsDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Mobile Actions Sheet */}
+    <ClientActionsSheet
+      open={mobileActionsOpen}
+      onOpenChange={setMobileActionsOpen}
+      onExport={handleExport}
+      onDepositInfo={handleViewDepositInfo}
+      isDepositInfoLoading={depositInfoLoading}
+    />
+
+    {/* Deposit Info Dialog */}
+    {showDepositInfo && depositInfo && (
+      <Dialog open={showDepositInfo} onOpenChange={setShowDepositInfo}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle>Deposit Information</DialogTitle>
+            <DialogDescription>
+              Breakdown and email preview for {client.name_english || client.name_korean || `Client #${client.id}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Separator />
+
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+            {/* Admin Summary Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Admin Summary</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleCopyDepositText(depositInfo.calculation.admin_summary, '✓ Admin summary copied')}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
+              </div>
+              <pre className="whitespace-pre-wrap break-words text-sm font-mono bg-muted p-4 rounded-lg">
+                {depositInfo.calculation.admin_summary}
+              </pre>
+            </div>
+
+            {/* Email Preview Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">Email Preview</h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyDepositText(depositInfo.email_preview.body, '✓ Email preview copied')}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const fullContent = `${depositInfo.calculation.admin_summary}\n\n${'='.repeat(50)}\n\nEMAIL PREVIEW\n${'='.repeat(50)}\n\nSubject: ${depositInfo.email_preview.subject}\n\n${depositInfo.email_preview.body}`;
+                      handleCopyDepositText(fullContent, '✓ All content copied');
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy All
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm">
+                  <span className="font-semibold">Subject:</span> {depositInfo.email_preview.subject}
+                </div>
+                <pre className="whitespace-pre-wrap break-words text-sm font-mono bg-muted p-4 rounded-lg">
+                  {depositInfo.email_preview.body}
+                </pre>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <DialogFooter className="px-6 py-4">
+            <Button onClick={() => setShowDepositInfo(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+    </>
   );
 }

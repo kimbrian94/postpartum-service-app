@@ -32,7 +32,7 @@ const ClientsPage = () => {
 
   return (
     <div className="h-full max-w-full flex flex-col">
-      <div className="flex justify-between items-center mb-4 md:mb-6">
+      <div className="flex justify-between items-center mb-4 md:mb-6 pl-14 lg:pl-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Clients</h1>
         </div>

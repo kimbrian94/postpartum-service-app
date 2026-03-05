@@ -73,7 +73,7 @@ export default function Sidebar() {
         `}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
+        <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200 lg:px-4 pl-14">
           {!isCollapsed && (
             <div className="flex items-center">
               <span className="text-xl font-bold text-indigo-600">
