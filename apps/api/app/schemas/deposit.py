@@ -44,3 +44,4 @@ class DepositResponse(BaseModel):
     """Combined response with admin view and email preview."""
     calculation: DepositCalculation
     email_preview: DepositEmailPreview
+    email_preview_korean: DepositEmailPreview

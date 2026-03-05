@@ -25,6 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -487,6 +488,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   const [exportData, setExportData] = React.useState<string | null>(null);
   const [depositInfo, setDepositInfo] = React.useState<DepositResponse | null>(null);
   const [depositInfoLoading, setDepositInfoLoading] = React.useState(false);
+  const [emailPreviewTab, setEmailPreviewTab] = React.useState('english');
   const [selectedYears, setSelectedYears] = React.useState<number[]>(() => {
     const currentYear = new Date().getFullYear();
     return [currentYear];
@@ -1255,7 +1257,16 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
 
       {/* Deposit Info Dialog */}
       {depositInfo && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setDepositInfo(null)}>
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" 
+          onClick={() => setDepositInfo(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setDepositInfo(null);
+            }
+          }}
+          tabIndex={0}
+        >
           <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between p-4 md:p-6 border-b">
@@ -1298,17 +1309,23 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                   </div>
                 </div>
 
-                {/* Email Preview */}
+                {/* Email Preview - Tabbed (English/Korean) */}
                 <div className="border rounded-lg">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+                  <div className="p-3 bg-gray-50 border-b flex items-center justify-between">
                     <h4 className="font-semibold text-sm uppercase text-gray-600">Email Preview</h4>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        navigator.clipboard.writeText(depositInfo.email_preview.body);
+                        const emailToCopy = emailPreviewTab === 'english' 
+                          ? depositInfo.email_preview.body 
+                          : depositInfo.email_preview_korean.body;
+                        const message = emailPreviewTab === 'english' 
+                          ? '✓ English email copied' 
+                          : '✓ Korean email copied';
+                        navigator.clipboard.writeText(emailToCopy);
                         toast({
-                          description: '✓ Email preview copied',
+                          description: message,
                           variant: 'success',
                         });
                       }}
@@ -1318,15 +1335,36 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                     </Button>
                   </div>
                   <div className="p-3">
-                    <div className="mb-3 pb-3 border-b">
-                      <span className="font-semibold text-sm text-gray-700">Subject:</span>
-                      <span className="ml-2 text-sm">{depositInfo.email_preview.subject}</span>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words">
-                        {depositInfo.email_preview.body}
-                      </pre>
-                    </div>
+                    <Tabs defaultValue="english" className="w-full" onValueChange={setEmailPreviewTab}>
+                      <TabsList className="grid w-full max-w-md grid-cols-2">
+                        <TabsTrigger value="english">English</TabsTrigger>
+                        <TabsTrigger value="korean">한국어</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="english" className="space-y-3 mt-4">
+                        <div className="mb-3 pb-3 border-b">
+                          <span className="font-semibold text-sm text-gray-700">Subject:</span>
+                          <span className="ml-2 text-sm">{depositInfo.email_preview.subject}</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words">
+                            {depositInfo.email_preview.body}
+                          </pre>
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="korean" className="space-y-3 mt-4">
+                        <div className="mb-3 pb-3 border-b">
+                          <span className="font-semibold text-sm text-gray-700">Subject:</span>
+                          <span className="ml-2 text-sm">{depositInfo.email_preview_korean.subject}</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <pre className="text-xs md:text-sm font-mono whitespace-pre-wrap break-words">
+                            {depositInfo.email_preview_korean.body}
+                          </pre>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 </div>
               </div>
@@ -1338,7 +1376,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                 variant="outline" 
                 className="w-full sm:w-auto"
                 onClick={() => {
-                  const fullText = `ADMIN SUMMARY\n${'='.repeat(80)}\n${depositInfo.calculation.admin_summary}\n\n\nEMAIL PREVIEW\n${'='.repeat(80)}\nSubject: ${depositInfo.email_preview.subject}\n\n${depositInfo.email_preview.body}`;
+                  const fullText = `ADMIN SUMMARY\n${'='.repeat(80)}\n${depositInfo.calculation.admin_summary}\n\n\nENGLISH EMAIL PREVIEW\n${'='.repeat(80)}\nSubject: ${depositInfo.email_preview.subject}\n\n${depositInfo.email_preview.body}\n\n\nKOREAN EMAIL PREVIEW (한국어)\n${'='.repeat(80)}\nSubject: ${depositInfo.email_preview_korean.subject}\n\n${depositInfo.email_preview_korean.body}`;
                   navigator.clipboard.writeText(fullText);
                   toast({
                     description: '✓ All content copied',

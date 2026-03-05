@@ -468,8 +468,176 @@ PAYMENT BREAKDOWN
         cash_price_eligible: bool,
         cash_price_note: str | None,
         client
+    ) -> tuple[DepositEmailPreview, DepositEmailPreview]:
+        """Internal method to generate both English and Korean email previews."""
+        english_email = self._generate_english_email(
+            client_id, client_name, total_service_cost, tax_amount,
+            cash_price_tax_amount, total_with_tax, total_cash_price,
+            deposit_amount, deposit_amount_cash_price, remaining_balance,
+            remaining_balance_cash_price, breakdown, deposit_rule,
+            cash_price_eligible, cash_price_note, client
+        )
+        
+        korean_email = self._generate_korean_email(
+            client_id, client_name, total_service_cost, tax_amount,
+            cash_price_tax_amount, total_with_tax, total_cash_price,
+            deposit_amount, deposit_amount_cash_price, remaining_balance,
+            remaining_balance_cash_price, breakdown, deposit_rule,
+            cash_price_eligible, cash_price_note, client
+        )
+        
+        return english_email, korean_email
+    
+    def _generate_korean_email(
+        self,
+        client_id: int,
+        client_name: str,
+        total_service_cost: float,
+        tax_amount: float,
+        cash_price_tax_amount: float | None,
+        total_with_tax: float,
+        total_cash_price: float | None,
+        deposit_amount: float,
+        deposit_amount_cash_price: float | None,
+        remaining_balance: float,
+        remaining_balance_cash_price: float | None,
+        breakdown: list,
+        deposit_rule: str,
+        cash_price_eligible: bool,
+        cash_price_note: str | None,
+        client
     ) -> DepositEmailPreview:
-        """Internal method to generate email preview with pre-calculated values."""
+        """Generate Korean version of email preview."""
+        subject = f"예약금 안내 - {client_name}"
+        
+        # Build service sections in Korean
+        service_sections = []
+        
+        for item in breakdown:
+            section_lines = []
+            
+            # Translate service names
+            service_name_kr = {
+                "Postpartum Care": "산후조리 서비스",
+                "Night Nurse": "나이트 너스",
+                "Special Massage": "산후 스페셜 전신 마사지",
+                "Facial Massage": "산후 페이셜 마사지",
+                "RMT Massage": "RMT 마사지"
+            }.get(item.service, item.service)
+            
+            section_lines.append(service_name_kr)
+            
+            # For taxable services (Postpartum Care, Night Nurse)
+            if item.service in ["Postpartum Care", "Night Nurse"]:
+                weeks_str = str(int(item.quantity))
+                
+                if "(" in item.unit:
+                    days_per_week = item.unit.split("(")[1].split(")")[0]
+                    frequency_text = f"{days_per_week.replace('days/week', '일')}, {weeks_str}주"
+                else:
+                    frequency_text = f"{weeks_str}주"
+                
+                service_cost = item.subtotal
+                service_tax = service_cost * 0.13
+                service_total = service_cost + service_tax
+                
+                service_deposit_before_tax = 0
+                cash_eligible = "Cash price option available" in (item.notes or "")
+                
+                if "Full payment required" in deposit_rule or (item.service == "Postpartum Care" and "Postpartum: 1-week" in deposit_rule) or (item.service == "Night Nurse" and "Night Nurse: 1-week" in deposit_rule):
+                    service_deposit_before_tax = service_cost
+                elif "3-week" in deposit_rule:
+                    service_deposit_before_tax = item.rate
+                elif "8+ week" in deposit_rule or "4 week deposit" in deposit_rule:
+                    service_deposit_before_tax = item.rate * 4
+                else:
+                    service_deposit_before_tax = service_cost * 0.5
+                
+                service_deposit_tax = service_deposit_before_tax * 0.13
+                service_deposit_with_tax = service_deposit_before_tax + service_deposit_tax
+                
+                section_lines.append(f"총 서비스 금액: ${service_cost:,.2f} + tax ({frequency_text} 기준)")
+                
+                if cash_eligible:
+                    section_lines.append(f"예약금: ${service_deposit_with_tax:,.2f} (${service_deposit_before_tax:,.2f} before tax) ({int(service_deposit_before_tax / item.rate)}주 기준)")
+                else:
+                    section_lines.append(f"예약금: ${service_deposit_with_tax:,.2f}")
+                
+                if cash_eligible:
+                    section_lines.append(f"")
+                    section_lines.append(f"* 4주 이상 계약하시는 산모님들한해서는 택스를 뺀 현금가격을 옵션으로 드리고 있습니다.")
+                    section_lines.append(f"  나중에 택스보고를 하시고 싶으실 경우엔 저희에게 택스부분만 납부해주시면")
+                    section_lines.append(f"  택스보고하실 수 있도록 영수증 프린트해드립니다!")
+                    section_lines.append(f"  현금가격을 원하시면 ${service_deposit_before_tax:,.0f}만 보내주시면 됩니다.")
+            
+            else:
+                # Non-taxable services (massages)
+                sessions_str = str(int(item.quantity))
+                service_deposit = item.subtotal * 0.5
+                
+                section_lines.append(f"총 서비스 금액: ${item.subtotal:,.2f} ({sessions_str} sessions)")
+                section_lines.append(f"예약금: ${service_deposit:,.2f}")
+            
+            service_sections.append("\n".join(section_lines))
+        
+        services_text = "\n\n".join(service_sections)
+        
+        # Calculate total deposit
+        total_deposit_text = f"총 예약금: ${deposit_amount:,.2f}"
+        if cash_price_eligible and deposit_amount_cash_price:
+            total_deposit_text += f" (${deposit_amount_cash_price:,.2f} before tax)"
+        
+        body = f"""안녕하세요,
+구글 폼을 작성해 주셔서 감사합니다!
+
+다음 단계는 예약 확정을 위한 예약금 입금입니다!
+아래 예약금 안내를 참고해 주세요.
+
+{services_text}
+
+{total_deposit_text}
+
+E-Transfer to: khannasofficial@gmail.com
+
+예약금 입금이 확인되면 예약이 확정됩니다.
+그 전까지는 예약 확정이 아니니 산모님의 자리 확보를 위해 빠른 예약 진행 부탁드립니다 :)
+
+입금 확인 후, 회계팀에서 계약 내용, 산모를 위한 영양 가이드, 산후관리사 업무내용 등을 이메일로 보내드립니다.
+
+잔금은 서비스가 시작하시기 전에 같은 방법으로 입금해주시면 되십니다.
+
+혹시라도 예정일에 변동이 생기시거나 서비스 전에 저희에게 알려주셔야하는 점이 있으시다면 언제든지 저희에게 이메일 해주시면 됩니다!
+
+저희 해나스 관리사님과 매니저팀이 산모님의 예정일 약 일주일전부터 준비를 하지만 변동 사항이 많은 예정일 특성상, 아기를 낳으러 병원가실때 저희에게 꼭! 연락 부탁드립니다 :)
+
+궁금하신 점이나 확인이 필요한 부분이 있으면 언제든 편하게 말씀해 주세요.
+해나스를 믿고 선택해주셔서 감사합니다!""".strip()
+        
+        return DepositEmailPreview(
+            subject=subject,
+            body=body
+        )
+    
+    def _generate_english_email(
+        self,
+        client_id: int,
+        client_name: str,
+        total_service_cost: float,
+        tax_amount: float,
+        cash_price_tax_amount: float | None,
+        total_with_tax: float,
+        total_cash_price: float | None,
+        deposit_amount: float,
+        deposit_amount_cash_price: float | None,
+        remaining_balance: float,
+        remaining_balance_cash_price: float | None,
+        breakdown: list,
+        deposit_rule: str,
+        cash_price_eligible: bool,
+        cash_price_note: str | None,
+        client
+    ) -> DepositEmailPreview:
+        """Generate English version of email preview."""
         subject = f"Deposit Invoice - {client_name}"
         
         # Build service sections
@@ -590,8 +758,8 @@ Hanna's Moms Care Team""".strip()
         # Get the client for email generation
         client = self.db.query(Client).filter(Client.id == client_id).first()
         
-        # Generate email preview using the calculation data
-        email_preview = self._generate_email_preview_internal(
+        # Generate both English and Korean email previews
+        email_preview, email_preview_korean = self._generate_email_preview_internal(
             client_id=calculation.client_id,
             client_name=calculation.client_name,
             total_service_cost=calculation.total_service_cost,
@@ -612,5 +780,6 @@ Hanna's Moms Care Team""".strip()
         
         return DepositResponse(
             calculation=calculation,
-            email_preview=email_preview
+            email_preview=email_preview,
+            email_preview_korean=email_preview_korean
         )

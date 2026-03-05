@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   User, 
   Mail, 
@@ -88,6 +89,7 @@ export function ClientDetailsDialog({
   const [depositInfo, setDepositInfo] = useState<DepositResponse | null>(null);
   const [depositInfoLoading, setDepositInfoLoading] = useState(false);
   const [showDepositInfo, setShowDepositInfo] = useState(false);
+  const [emailPreviewTab, setEmailPreviewTab] = useState('english');
   const { toast } = useToast();
 
   const handleExport = () => {
@@ -946,7 +948,13 @@ export function ClientDetailsDialog({
 
     {/* Deposit Info Dialog */}
     {showDepositInfo && depositInfo && (
-      <Dialog open={showDepositInfo} onOpenChange={setShowDepositInfo}>
+      <Dialog open={showDepositInfo} onOpenChange={(isOpen) => {
+        setShowDepositInfo(isOpen);
+        if (!isOpen) {
+          // Reopen the client details dialog when deposit info closes
+          setTimeout(() => onOpenChange(true), 0);
+        }
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 flex flex-col">
           <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Deposit Information</DialogTitle>
@@ -976,47 +984,76 @@ export function ClientDetailsDialog({
               </pre>
             </div>
 
-            {/* Email Preview Section */}
+            {/* Email Preview Section - Tabbed (English/Korean) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Email Preview</h3>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyDepositText(depositInfo.email_preview.body, '✓ Email preview copied')}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Email
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const fullContent = `${depositInfo.calculation.admin_summary}\n\n${'='.repeat(50)}\n\nEMAIL PREVIEW\n${'='.repeat(50)}\n\nSubject: ${depositInfo.email_preview.subject}\n\n${depositInfo.email_preview.body}`;
-                      handleCopyDepositText(fullContent, '✓ All content copied');
-                    }}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy All
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const emailToCopy = emailPreviewTab === 'english' 
+                      ? depositInfo.email_preview.body 
+                      : depositInfo.email_preview_korean.body;
+                    const message = emailPreviewTab === 'english' 
+                      ? '✓ English email copied' 
+                      : '✓ Korean email copied';
+                    handleCopyDepositText(emailToCopy, message);
+                  }}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy
+                </Button>
               </div>
-              <div className="space-y-2">
-                <div className="text-sm">
-                  <span className="font-semibold">Subject:</span> {depositInfo.email_preview.subject}
-                </div>
-                <pre className="whitespace-pre-wrap break-words text-sm font-mono bg-muted p-4 rounded-lg">
-                  {depositInfo.email_preview.body}
-                </pre>
-              </div>
+              
+              <Tabs defaultValue="english" className="w-full" onValueChange={setEmailPreviewTab}>
+                <TabsList className="grid w-full max-w-md grid-cols-2">
+                  <TabsTrigger value="english">English</TabsTrigger>
+                  <TabsTrigger value="korean">한국어</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="english" className="space-y-3 mt-4">
+                  <div className="text-sm">
+                    <span className="font-semibold">Subject:</span> {depositInfo.email_preview.subject}
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words text-sm font-mono bg-muted p-4 rounded-lg">
+                    {depositInfo.email_preview.body}
+                  </pre>
+                </TabsContent>
+                
+                <TabsContent value="korean" className="space-y-3 mt-4">
+                  <div className="text-sm">
+                    <span className="font-semibold">Subject:</span> {depositInfo.email_preview_korean.subject}
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words text-sm font-mono bg-muted p-4 rounded-lg">
+                    {depositInfo.email_preview_korean.body}
+                  </pre>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Copy All Button */}
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const fullContent = `${depositInfo.calculation.admin_summary}\n\n${'='.repeat(50)}\n\nENGLISH EMAIL PREVIEW\n${'='.repeat(50)}\n\nSubject: ${depositInfo.email_preview.subject}\n\n${depositInfo.email_preview.body}\n\n${'='.repeat(50)}\n\nKOREAN EMAIL PREVIEW (한국어)\n${'='.repeat(50)}\n\nSubject: ${depositInfo.email_preview_korean.subject}\n\n${depositInfo.email_preview_korean.body}`;
+                  handleCopyDepositText(fullContent, '✓ All content copied');
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy All (Admin + Both Emails)
+              </Button>
             </div>
           </div>
 
           <Separator />
 
           <DialogFooter className="px-6 py-4">
-            <Button onClick={() => setShowDepositInfo(false)}>Close</Button>
+            <Button onClick={() => {
+              setShowDepositInfo(false);
+              setTimeout(() => onOpenChange(true), 0);
+            }}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

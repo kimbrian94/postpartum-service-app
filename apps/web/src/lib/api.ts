@@ -120,6 +120,7 @@ export interface DepositEmailPreview {
 export interface DepositResponse {
   calculation: DepositCalculation;
   email_preview: DepositEmailPreview;
+  email_preview_korean: DepositEmailPreview;
 }
 
 export interface GetClientsParams {
