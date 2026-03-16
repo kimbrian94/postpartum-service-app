@@ -132,18 +132,6 @@ def update_client(
                 "message": "At least one name (English or Korean) is required"
             })
     
-    # Additional validation: check for duplicate email if email is being updated
-    if 'email' in update_data:
-        existing_client = db.query(Client).filter(
-            Client.email == update_data['email'],
-            Client.id != client_id
-        ).first()
-        if existing_client:
-            validation_errors.append({
-                "field": "email",
-                "message": "A client with this email already exists"
-            })
-    
     # If there are validation errors, return them
     if validation_errors:
         logger.warning(
