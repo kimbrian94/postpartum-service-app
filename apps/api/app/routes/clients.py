@@ -138,6 +138,7 @@ def update_client(
             f"Validation failed for client {client_id}: "
             f"{len(validation_errors)} error(s) - {validation_errors}"
         )
+        print(f"Validation errors for client {client_id}: {validation_errors}")
         raise HTTPException(
             status_code=422,
             detail={
