@@ -290,23 +290,34 @@ export function ClientDetailsDialog({
           
           toast({
             title: 'Validation Error',
-            description: detail.message || detail.msg || 'Please fix the errors in the form.',
+            description: detail.message ||  'Please fix the errors in the form.',
             variant: 'destructive',
           });
         } else if (Array.isArray(detail)) {
           // Pydantic validation errors (from schema validators)
           const fieldErrors: Record<string, string> = {};
+          const modelErrors: string[] = [];
+          
           detail.forEach((err: any) => {
             const field = err.loc?.[err.loc.length - 1];
-            if (field) {
+            
+            // Check if this is a model-level error (loc is ['body'])
+            if (err.loc?.length === 1 && err.loc[0] === 'body') {
+              // Model-level validation error
+              modelErrors.push(err.msg);
+            } else if (field && field !== 'body') {
+              // Field-level validation error
               fieldErrors[field] = err.msg;
             }
           });
+          
           setErrors(fieldErrors);
           
           toast({
             title: 'Validation Error',
-            description: 'Please fix the errors in the form.',
+            description: modelErrors.length > 0 
+              ? modelErrors.join('. ') 
+              : 'Please fix the errors in the form.',
             variant: 'destructive',
           });
         }
