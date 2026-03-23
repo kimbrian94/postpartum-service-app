@@ -1,5 +1,6 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from app.routes import router as api_router
 from app.core.logging_config import setup_logging, get_logger
 import time
@@ -17,6 +18,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Log all HTTP exceptions based on severity."""
+    # Log different levels based on status code
+    if exc.status_code >= 500:
+        logger.error(
+            f"HTTP {exc.status_code}: {request.method} {request.url.path} | "
+            f"Detail: {exc.detail}",
+            exc_info=True
+        )
+    elif exc.status_code >= 400:
+        logger.warning(
+            f"HTTP {exc.status_code}: {request.method} {request.url.path} | "
+            f"Detail: {exc.detail}"
+        )
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 
 @app.middleware("http")

@@ -134,9 +134,9 @@ def update_client(
     
     # If there are validation errors, return them
     if validation_errors:
-        logger.info(
+        logger.warning(
             f"Validation failed for client {client_id}: "
-            f"{len(validation_errors)} error(s)"
+            f"{len(validation_errors)} error(s) - {validation_errors}"
         )
         raise HTTPException(
             status_code=422,
