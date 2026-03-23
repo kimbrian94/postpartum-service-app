@@ -61,7 +61,8 @@ async def log_requests(request: Request, call_next):
         # Log response
         logger.info(
             f"Request completed: {request.method} {request.url.path} | "
-            f"Status: {response.status_code} | Duration: {process_time:.3f}s"
+            f"Status: {response.status_code} | Duration: {process_time:.3f}s | "
+            f"Detail: {response.detail if hasattr(response, 'detail') else 'N/A'}"
         )
         
         response.headers["X-Process-Time"] = str(process_time)
