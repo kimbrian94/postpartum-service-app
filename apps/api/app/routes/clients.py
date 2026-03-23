@@ -49,7 +49,7 @@ def get_clients(
 
     clients = query.offset(skip).limit(limit).all()
     logger.info(
-        f"Retrieved {len(clients)} clientssss | "
+        f"Retrieved {len(clients)} clients | "
         f"Filters: status={status}, search={search} | "
         f"User: {current_user.email}"
     )
@@ -133,6 +133,7 @@ def update_client(
             })
     
     # If there are validation errors, return them
+    logger.info(f"Validation errors for client ID={client_id}: {validation_errors}")
     if validation_errors:
         logger.warning(
             f"Validation failed for client {client_id}: "
