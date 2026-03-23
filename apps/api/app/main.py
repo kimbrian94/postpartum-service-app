@@ -58,14 +58,51 @@ async def log_requests(request: Request, call_next):
         response = await call_next(request)
         process_time = time.time() - start_time
         
-        # Log response
-        logger.info(
-            f"Request completed: {request.method} {request.url.path} | "
-            f"Status: {response.status_code} | Duration: {process_time:.3f}s"
-        )
+        # Check if response is an error and log with detail
+        if response.status_code >= 400:
+            # For error responses, try to read the body to get detail
+            import json
+            body = b""
+            async for chunk in response.body_iterator:
+                body += chunk
+            
+            # Reconstruct the response with the body we just read
+            from starlette.responses import Response
+            response = Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.media_type
+            )
+            
+            # Try to parse the error detail
+            try:
+                error_detail = json.loads(body.decode())
+                detail_str = error_detail.get("detail", "No detail")
+            except:
+                detail_str = "Could not parse detail"
+            
+            # Log based on status code
+            if response.status_code >= 500:
+                logger.error(
+                    f"HTTP {response.status_code}: {request.method} {request.url.path} | "
+                    f"Detail: {detail_str} | Duration: {process_time:.3f}s"
+                )
+            elif response.status_code >= 400:
+                logger.info(
+                    f"⚠️ HTTP {response.status_code}: {request.method} {request.url.path} | "
+                    f"Detail: {detail_str} | Duration: {process_time:.3f}s"
+                )
+        else:
+            # Log success response
+            logger.info(
+                f"Request completed: {request.method} {request.url.path} | "
+                f"Status: {response.status_code} | Duration: {process_time:.3f}s"
+            )
         
         response.headers["X-Process-Time"] = str(process_time)
         return response
+        
     except Exception as e:
         process_time = time.time() - start_time
         logger.error(
