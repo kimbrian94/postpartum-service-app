@@ -31,7 +31,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             exc_info=True
         )
     elif exc.status_code >= 400:
-        logger.warning(
+        logger.info(
             f"HTTP {exc.status_code}: {request.method} {request.url.path} | "
             f"Detail: {exc.detail}"
         )
@@ -61,8 +61,7 @@ async def log_requests(request: Request, call_next):
         # Log response
         logger.info(
             f"Request completed: {request.method} {request.url.path} | "
-            f"Status: {response.status_code} | Duration: {process_time:.3f}s | "
-            f"Detail: {response.detail if hasattr(response, 'detail') else 'N/A'}"
+            f"Status: {response.status_code} | Duration: {process_time:.3f}s"
         )
         
         response.headers["X-Process-Time"] = str(process_time)
