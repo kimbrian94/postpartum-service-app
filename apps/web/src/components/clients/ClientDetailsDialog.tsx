@@ -290,7 +290,7 @@ export function ClientDetailsDialog({
           
           toast({
             title: 'Validation Error',
-            description: detail.message || 'Please fix the errors in the form.',
+            description: detail.message || detail.msg || 'Please fix the errors in the form.',
             variant: 'destructive',
           });
         } else if (Array.isArray(detail)) {

@@ -133,7 +133,7 @@ def update_client(
             })
     
     # If there are validation errors, return them
-    logger.info(f"Validation errors for client ID={client_id}: {validation_errors}")
+    
     if validation_errors:
         logger.warning(
             f"Validation failed for client {client_id}: "
