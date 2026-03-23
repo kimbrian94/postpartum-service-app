@@ -49,7 +49,7 @@ def get_clients(
 
     clients = query.offset(skip).limit(limit).all()
     logger.info(
-        f"Retrieved {len(clients)} clients | "
+        f"Retrieved {len(clients)} clientssss | "
         f"Filters: status={status}, search={search} | "
         f"User: {current_user.email}"
     )
