@@ -493,9 +493,13 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     const currentYear = new Date().getFullYear();
     return [currentYear];
   });
+  const [selectedMonths, setSelectedMonths] = React.useState<number[]>([]);
   const [filterSheetOpen, setFilterSheetOpen] = React.useState(false);
 
   const { toast } = useToast();
+
+  // Month names for display
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   // Extract unique years from due dates
   const availableYears = React.useMemo(() => {
@@ -511,22 +515,63 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     return Array.from(years).sort((a, b) => b - a); // Descending order
   }, [data]);
 
-  // Filter data by selected years
-  const filteredData = React.useMemo(() => {
-    if (selectedYears.length === 0) {
-      return data;
-    }
-    return data.filter((client) => {
-      if (!client.due_date) return false;
-      const year = new Date(client.due_date).getFullYear();
-      return selectedYears.includes(year);
+  // Extract unique months from due dates for the selected years
+  const availableMonths = React.useMemo(() => {
+    const months = new Set<number>();
+    data.forEach((client) => {
+      if (client.due_date) {
+        const date = new Date(client.due_date);
+        const year = date.getFullYear();
+        const month = date.getMonth(); // 0-11
+        
+        // Only include months from selected years, or all months if no year is selected
+        if (selectedYears.length === 0 || selectedYears.includes(year)) {
+          months.add(month);
+        }
+      }
     });
+    return Array.from(months).sort((a, b) => a - b); // Ascending order (Jan to Dec)
   }, [data, selectedYears]);
 
+  // Filter data by selected years and months
+  const filteredData = React.useMemo(() => {
+    return data.filter((client) => {
+      if (!client.due_date) return false;
+      
+      const date = new Date(client.due_date);
+      const year = date.getFullYear();
+      const month = date.getMonth(); // 0-11
+      
+      // Year filter
+      const yearMatch = selectedYears.length === 0 || selectedYears.includes(year);
+      
+      // Month filter
+      const monthMatch = selectedMonths.length === 0 || selectedMonths.includes(month);
+      
+      return yearMatch && monthMatch;
+    });
+  }, [data, selectedYears, selectedMonths]);
+
   const toggleYear = (year: number) => {
-    setSelectedYears((prev) =>
-      prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year]
+    setSelectedYears((prev) => {
+      const newYears = prev.includes(year) ? prev.filter((y) => y !== year) : [...prev, year];
+      // Clear month selection when changing years to avoid confusing state
+      if (newYears.length !== prev.length) {
+        setSelectedMonths([]);
+      }
+      return newYears;
+    });
+  };
+
+  const toggleMonth = (month: number) => {
+    setSelectedMonths((prev) =>
+      prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month]
     );
+  };
+
+  const clearAllFilters = () => {
+    setSelectedYears([]);
+    setSelectedMonths([]);
   };
 
   // Helper functions for column management
@@ -709,7 +754,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   // Close menu when user starts searching or changing filters
   React.useEffect(() => {
     setContextMenu(null);
-  }, [searchInput, columnFilters, sorting, pagination, selectedYears]);
+  }, [searchInput, columnFilters, sorting, pagination, selectedYears, selectedMonths]);
 
   // Custom global filter function for Korean character support
   const globalFilterFn = React.useCallback((row: any, columnId: string, filterValue: string) => {
@@ -772,29 +817,61 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
         />
         
         {/* Desktop: Show filters inline */}
-        <div className="hidden md:flex items-center gap-2 md:ml-auto">
+        <div className="hidden md:flex items-center gap-2 md:ml-auto flex-wrap">
           {/* Year Filter Chips */}
           {availableYears.length > 0 && (
             <>
-              <Button
-                variant={selectedYears.length === 0 ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setSelectedYears([])}
-                className="h-9"
-              >
-                All
-              </Button>
-              {availableYears.map((year) => (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Year:</span>
                 <Button
-                  key={year}
-                  variant={selectedYears.includes(year) ? "default" : "ghost"}
+                  variant={selectedYears.length === 0 ? "default" : "outline"}
                   size="sm"
-                  onClick={() => toggleYear(year)}
-                  className="h-9"
+                  onClick={clearAllFilters}
+                  className="h-8"
                 >
-                  {year}
+                  All
                 </Button>
-              ))}
+                {availableYears.map((year) => (
+                  <Button
+                    key={year}
+                    variant={selectedYears.includes(year) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleYear(year)}
+                    className="h-8"
+                  >
+                    {year}
+                  </Button>
+                ))}
+              </div>
+              
+              {/* Month Filter Chips - Only show when year(s) are selected */}
+              {selectedYears.length > 0 && availableMonths.length > 0 && (
+                <>
+                  <Separator orientation="vertical" className="h-6 mx-1" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-medium">Month:</span>
+                    <Button
+                      variant={selectedMonths.length === 0 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedMonths([])}
+                      className="h-8"
+                    >
+                      All
+                    </Button>
+                    {availableMonths.map((month) => (
+                      <Button
+                        key={month}
+                        variant={selectedMonths.includes(month) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleMonth(month)}
+                        className="h-8"
+                      >
+                        {monthNames[month]}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
               <Separator orientation="vertical" className="h-6 mx-1" />
             </>
           )}
@@ -933,12 +1010,24 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
               {/* Year Filter */}
               {availableYears.length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium">Filter by Year</h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Filter by Year</h4>
+                    {(selectedYears.length > 0 || selectedMonths.length > 0) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearAllFilters}
+                        className="h-7 text-xs"
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant={selectedYears.length === 0 ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setSelectedYears([])}
+                      onClick={clearAllFilters}
                       className="h-9"
                     >
                       All Years
@@ -957,26 +1046,74 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                   </div>
                 </div>
               )}
+
+              {/* Month Filter - Only show when year(s) are selected */}
+              {selectedYears.length > 0 && availableMonths.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium">Filter by Month</h4>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant={selectedMonths.length === 0 ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedMonths([])}
+                      className="h-9"
+                    >
+                      All Months
+                    </Button>
+                    {availableMonths.map((month) => (
+                      <Button
+                        key={month}
+                        variant={selectedMonths.includes(month) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleMonth(month)}
+                        className="h-9"
+                      >
+                        {monthNames[month]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </SheetContent>
         </Sheet>
       </div>
 
       {/* Active Filters Badge (Mobile) */}
-      {selectedYears.length > 0 && (
-        <div className="flex md:hidden items-center gap-2 pb-2 flex-wrap">
-          <span className="text-xs text-muted-foreground">Year:</span>
-          {selectedYears.map((year) => (
-            <Badge key={year} variant="secondary" className="text-xs h-6">
-              {year}
-              <button
-                onClick={() => toggleYear(year)}
-                className="ml-1 hover:text-destructive"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
+      {(selectedYears.length > 0 || selectedMonths.length > 0) && (
+        <div className="flex md:hidden flex-col gap-2 pb-2">
+          {selectedYears.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-medium">Year:</span>
+              {selectedYears.map((year) => (
+                <Badge key={year} variant="secondary" className="text-xs h-6">
+                  {year}
+                  <button
+                    onClick={() => toggleYear(year)}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+          {selectedMonths.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground font-medium">Month:</span>
+              {selectedMonths.map((month) => (
+                <Badge key={month} variant="secondary" className="text-xs h-6">
+                  {monthNames[month]}
+                  <button
+                    onClick={() => toggleMonth(month)}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </div>
       )}
       
