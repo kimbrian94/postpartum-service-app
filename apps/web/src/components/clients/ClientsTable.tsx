@@ -506,7 +506,9 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     const years = new Set<number>();
     data.forEach((client) => {
       if (client.due_date) {
-        const year = new Date(client.due_date).getFullYear();
+        // Extract year directly from ISO string to avoid timezone conversion
+        const dateOnly = client.due_date.split('T')[0]; // "2025-10-01"
+        const year = parseInt(dateOnly.substring(0, 4));
         if (!isNaN(year)) {
           years.add(year);
         }
@@ -520,9 +522,10 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     const months = new Set<number>();
     data.forEach((client) => {
       if (client.due_date) {
-        const date = new Date(client.due_date);
-        const year = date.getFullYear();
-        const month = date.getMonth(); // 0-11
+        // Extract date parts directly from ISO string to avoid timezone conversion
+        const dateOnly = client.due_date.split('T')[0]; // "2025-10-01"
+        const year = parseInt(dateOnly.substring(0, 4));
+        const month = parseInt(dateOnly.substring(5, 7)) - 1; // Convert to 0-based (0-11)
         
         // Only include months from selected years, or all months if no year is selected
         if (selectedYears.length === 0 || selectedYears.includes(year)) {
@@ -538,9 +541,10 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
     return data.filter((client) => {
       if (!client.due_date) return false;
       
-      const date = new Date(client.due_date);
-      const year = date.getFullYear();
-      const month = date.getMonth(); // 0-11
+      // Extract date parts directly from ISO string to avoid timezone conversion
+      const dateOnly = client.due_date.split('T')[0]; // "2025-10-01"
+      const year = parseInt(dateOnly.substring(0, 4));
+      const month = parseInt(dateOnly.substring(5, 7)) - 1; // Convert to 0-based (0-11)
       
       // Year filter
       const yearMatch = selectedYears.length === 0 || selectedYears.includes(year);
