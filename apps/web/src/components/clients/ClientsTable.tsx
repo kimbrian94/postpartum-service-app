@@ -812,16 +812,16 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Top Bar - Responsive */}
-      <div className="flex items-center gap-2 py-3 md:py-4 flex-shrink-0">
+      <div className="flex flex-col gap-2 py-3 md:py-4 flex-shrink-0">
         <Input
           placeholder="Search..."
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          className="flex-1 md:max-w-sm"
+          className="w-full md:max-w-sm"
         />
         
         {/* Desktop: Show filters inline */}
-        <div className="hidden md:flex items-center gap-2 md:ml-auto flex-wrap">
+        <div className="hidden md:flex items-center gap-2 flex-wrap">
           {/* Year Filter Chips */}
           {availableYears.length > 0 && (
             <>
