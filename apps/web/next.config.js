@@ -1,6 +1,4 @@
 /** @type {import('next').NextConfig} */
-const path = require('path');
-
 const nextConfig = {
   reactStrictMode: true,
   
@@ -11,10 +9,6 @@ const nextConfig = {
         hostname: '**',
       },
     ],
-  },
-  
-  turbopack: {
-    root: path.resolve(__dirname, '../..'),
   },
 };
 
