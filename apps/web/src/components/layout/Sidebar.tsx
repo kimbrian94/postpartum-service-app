@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   Home,
   Users,
+  UserCog,
   Calendar,
   FileText,
   Settings,
@@ -25,6 +26,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Home', href: '/', icon: Home },
   { name: 'Clients', href: '/clients', icon: Users },
+  { name: 'Doulas', href: '/doulas', icon: UserCog },
   { name: 'Appointments', href: '/appointments', icon: Calendar },
   { name: 'Services', href: '/services', icon: FileText },
   { name: 'Settings', href: '/settings', icon: Settings },

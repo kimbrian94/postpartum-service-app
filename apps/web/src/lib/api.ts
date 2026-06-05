@@ -233,3 +233,257 @@ export async function getDepositInfo(clientId: number): Promise<DepositResponse>
 
   return response.json();
 }
+
+// ============================================================================
+// Doula API Functions
+// ============================================================================
+
+import type { 
+  Doula, 
+  DoulaCreate, 
+  DoulaUpdate, 
+  AvailableDoula,
+  Assignment,
+  AssignmentCreate,
+  AssignmentUpdate,
+  AssignmentWithDetails,
+  AssignmentDoulaHistory,
+  AssignmentDoulaSwitchRequest
+} from '@/types';
+
+export async function getDoulas(activeOnly: boolean = true): Promise<Doula[]> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('active_only', activeOnly.toString());
+
+  const url = `${API_BASE_URL}/api/doulas/?${queryParams.toString()}`;
+  
+  const response = await fetchWithAuth(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch doulas: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getDoula(id: number): Promise<Doula> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/doulas/${id}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch doula: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function createDoula(payload: DoulaCreate): Promise<Doula> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/doulas/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create doula: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function updateDoula(id: number, payload: DoulaUpdate): Promise<Doula> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/doulas/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update doula: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function deactivateDoula(id: number): Promise<void> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/doulas/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to deactivate doula: ${response.statusText}`);
+  }
+}
+
+// ============================================================================
+// Assignment API Functions
+// ============================================================================
+
+export interface GetAssignmentsParams {
+  start_date?: string;
+  end_date?: string;
+  client_id?: number;
+  doula_id?: number;
+  status?: string;
+}
+
+export async function getAssignments(params?: GetAssignmentsParams): Promise<AssignmentWithDetails[]> {
+  const queryParams = new URLSearchParams();
+  if (params?.start_date) queryParams.append('start_date', params.start_date);
+  if (params?.end_date) queryParams.append('end_date', params.end_date);
+  if (params?.client_id !== undefined) queryParams.append('client_id', params.client_id.toString());
+  if (params?.doula_id !== undefined) queryParams.append('doula_id', params.doula_id.toString());
+  if (params?.status) queryParams.append('status', params.status);
+
+  const url = `${API_BASE_URL}/api/assignments/?${queryParams.toString()}`;
+  
+  const response = await fetchWithAuth(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch assignments: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function getAssignment(id: number): Promise<AssignmentWithDetails> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/assignments/${id}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch assignment: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function createAssignment(payload: AssignmentCreate): Promise<Assignment> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/assignments/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    const error: any = new Error(errorData?.detail || `Failed to create assignment: ${response.statusText}`);
+    error.response = {
+      status: response.status,
+      data: errorData,
+    };
+    throw error;
+  }
+
+  return response.json();
+}
+
+export async function updateAssignment(id: number, payload: AssignmentUpdate): Promise<Assignment> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/assignments/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    const error: any = new Error(errorData?.detail || `Failed to update assignment: ${response.statusText}`);
+    error.response = {
+      status: response.status,
+      data: errorData,
+    };
+    throw error;
+  }
+
+  return response.json();
+}
+
+export async function deleteAssignment(id: number): Promise<void> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/assignments/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete assignment: ${response.statusText}`);
+  }
+}
+
+export async function getAssignmentDoulaHistory(id: number): Promise<AssignmentDoulaHistory[]> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/assignments/${id}/doula-history`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch doula history: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+export async function switchAssignmentDoula(
+  id: number,
+  payload: AssignmentDoulaSwitchRequest
+): Promise<AssignmentWithDetails> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/assignments/${id}/switch-doula`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => null);
+    const error: any = new Error(errorData?.detail || `Failed to switch doula: ${response.statusText}`);
+    error.response = {
+      status: response.status,
+      data: errorData,
+    };
+    throw error;
+  }
+
+  return response.json();
+}
+
+export async function getAvailableDoulas(startDate: string, endDate: string, excludeAssignmentId?: number): Promise<AvailableDoula[]> {
+  const queryParams = new URLSearchParams();
+  queryParams.append('start_date', startDate);
+  queryParams.append('end_date', endDate);
+  if (excludeAssignmentId !== undefined) {
+    queryParams.append('exclude_assignment_id', excludeAssignmentId.toString());
+  }
+
+  const url = `${API_BASE_URL}/api/assignments/available-doulas?${queryParams.toString()}`;
+  
+  const response = await fetchWithAuth(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch available doulas: ${response.statusText}`);
+  }
+
+  return response.json();
+}

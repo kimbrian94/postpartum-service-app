@@ -3,7 +3,6 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   
   images: {
     remotePatterns: [
@@ -14,10 +13,8 @@ const nextConfig = {
     ],
   },
   
-  experimental: {
-    turbo: {
-      root: path.resolve(__dirname, '../..'),
-    },
+  turbopack: {
+    root: path.resolve(__dirname, '../..'),
   },
 };
 

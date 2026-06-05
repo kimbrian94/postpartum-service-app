@@ -406,7 +406,7 @@ export function ClientDetailsDialog({
             <Label htmlFor="current_status" className="text-base font-semibold">Current Status</Label>
             <Select
               value={formData.status}
-              onValueChange={(value) => handleChange('status', value)}
+              onValueChange={(value: string) => handleChange('status', value)}
             >
               <SelectTrigger id="current_status" className="w-full max-w-sm">
                 <SelectValue placeholder="Select status" />
@@ -539,7 +539,7 @@ export function ClientDetailsDialog({
                   <Label htmlFor="is_twins">Is Twins</Label>
                   <Select
                     value={formData.is_twins?.toString()}
-                    onValueChange={(value) => handleChange('is_twins', value === 'true')}
+                    onValueChange={(value: string) => handleChange('is_twins', value === 'true')}
                   >
                     <SelectTrigger id="is_twins">
                       <SelectValue placeholder="Select option" />
@@ -588,7 +588,7 @@ export function ClientDetailsDialog({
                   <Label htmlFor="has_pets">Has Pets</Label>
                   <Select
                     value={formData.has_pets?.toString()}
-                    onValueChange={(value) => handleChange('has_pets', value === 'true')}
+                    onValueChange={(value: string) => handleChange('has_pets', value === 'true')}
                   >
                     <SelectTrigger id="has_pets">
                       <SelectValue placeholder="Select option" />
@@ -604,7 +604,7 @@ export function ClientDetailsDialog({
                   <Label htmlFor="visitor_parking_available">Visitor Parking Available</Label>
                   <Select
                     value={formData.visitor_parking_available?.toString()}
-                    onValueChange={(value) => handleChange('visitor_parking_available', value === 'true')}
+                    onValueChange={(value: string) => handleChange('visitor_parking_available', value === 'true')}
                   >
                     <SelectTrigger id="visitor_parking_available">
                       <SelectValue placeholder="Select option" />
@@ -648,7 +648,7 @@ export function ClientDetailsDialog({
                   <Label htmlFor="familiar_with_korean_food">Familiar with Korean Food</Label>
                   <Select
                     value={formData.familiar_with_korean_food?.toString()}
-                    onValueChange={(value) => handleChange('familiar_with_korean_food', value === 'true')}
+                    onValueChange={(value: string) => handleChange('familiar_with_korean_food', value === 'true')}
                   >
                     <SelectTrigger id="familiar_with_korean_food">
                       <SelectValue placeholder="Select option" />
@@ -734,7 +734,7 @@ export function ClientDetailsDialog({
                     <Label htmlFor="postpartum_care_requested">Care Requested</Label>
                     <Select
                       value={formData.postpartum_care_requested?.toString()}
-                      onValueChange={(value) => handleChange('postpartum_care_requested', value === 'true')}
+                      onValueChange={(value: string) => handleChange('postpartum_care_requested', value === 'true')}
                     >
                       <SelectTrigger id="postpartum_care_requested">
                         <SelectValue placeholder="Select option" />
@@ -774,7 +774,7 @@ export function ClientDetailsDialog({
                     <Label htmlFor="night_nurse_requested">Night Nurse Requested</Label>
                     <Select
                       value={formData.night_nurse_requested?.toString()}
-                      onValueChange={(value) => handleChange('night_nurse_requested', value === 'true')}
+                      onValueChange={(value: string) => handleChange('night_nurse_requested', value === 'true')}
                     >
                       <SelectTrigger id="night_nurse_requested">
                         <SelectValue placeholder="Select option" />
@@ -810,7 +810,7 @@ export function ClientDetailsDialog({
                     <Label htmlFor="special_massage_requested">Massage Requested</Label>
                     <Select
                       value={formData.special_massage_requested?.toString()}
-                      onValueChange={(value) => handleChange('special_massage_requested', value === 'true')}
+                      onValueChange={(value: string) => handleChange('special_massage_requested', value === 'true')}
                     >
                       <SelectTrigger id="special_massage_requested">
                         <SelectValue placeholder="Select option" />
@@ -844,7 +844,7 @@ export function ClientDetailsDialog({
                     <Label htmlFor="facial_massage_requested">Massage Requested</Label>
                     <Select
                       value={formData.facial_massage_requested?.toString()}
-                      onValueChange={(value) => handleChange('facial_massage_requested', value === 'true')}
+                      onValueChange={(value: string) => handleChange('facial_massage_requested', value === 'true')}
                     >
                       <SelectTrigger id="facial_massage_requested">
                         <SelectValue placeholder="Select option" />
@@ -878,7 +878,7 @@ export function ClientDetailsDialog({
                     <Label htmlFor="rmt_massage_requested">Massage Requested</Label>
                     <Select
                       value={formData.rmt_massage_requested?.toString()}
-                      onValueChange={(value) => handleChange('rmt_massage_requested', value === 'true')}
+                      onValueChange={(value: string) => handleChange('rmt_massage_requested', value === 'true')}
                     >
                       <SelectTrigger id="rmt_massage_requested">
                         <SelectValue placeholder="Select option" />
@@ -959,7 +959,7 @@ export function ClientDetailsDialog({
 
     {/* Deposit Info Dialog */}
     {showDepositInfo && depositInfo && (
-      <Dialog open={showDepositInfo} onOpenChange={(isOpen) => {
+      <Dialog open={showDepositInfo} onOpenChange={(isOpen: boolean) => {
         setShowDepositInfo(isOpen);
         if (!isOpen) {
           // Reopen the client details dialog when deposit info closes

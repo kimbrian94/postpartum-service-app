@@ -812,16 +812,16 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
   return (
     <div className="w-full h-full flex flex-col">
       {/* Top Bar - Responsive */}
-      <div className="flex flex-col gap-2 py-3 md:py-4 flex-shrink-0">
+      <div className="flex flex-row items-center gap-2 py-3 md:flex-col md:items-start md:py-4 flex-shrink-0">
         <Input
           placeholder="Search..."
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          className="w-full md:max-w-sm"
+          className="flex-1 md:w-full md:max-w-sm"
         />
         
         {/* Desktop: Show filters inline */}
-        <div className="hidden md:flex items-center gap-2 flex-wrap">
+        <div className="hidden md:flex w-full items-center justify-end gap-2 flex-wrap">
           {/* Year Filter Chips */}
           {availableYears.length > 0 && (
             <>
@@ -955,8 +955,8 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                             key={columnId}
                             className="capitalize text-sm"
                             checked={column.getIsVisible()}
-                            onCheckedChange={(value) => column.toggleVisibility(!!value)}
-                            onSelect={(e) => e.preventDefault()}
+                            onCheckedChange={(value: boolean | 'indeterminate') => column.toggleVisibility(!!value)}
+                            onSelect={(e: Event) => e.preventDefault()}
                           >
                             {columnId.replace(/_/g, ' ')}
                           </DropdownMenuCheckboxItem>
@@ -992,7 +992,7 @@ export function ClientsTable({ data, onClientUpdated }: ClientsTableProps) {
                 <h4 className="text-sm font-medium">Sort By</h4>
                 <Select
                   value={`${sorting[0]?.id || 'due_date'}-${sorting[0]?.desc ? 'desc' : 'asc'}`}
-                  onValueChange={(value) => {
+                  onValueChange={(value: string) => {
                     const [id, direction] = value.split('-');
                     setSorting([{ id, desc: direction === 'desc' }]);
                   }}
