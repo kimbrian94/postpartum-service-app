@@ -26,27 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-
-const SERVICE_AREAS = [
-  'Ajax',
-  'Aurora/ King City',
-  'Barrie',
-  'Brampton',
-  'Downtown',
-  'Etobicoke',
-  'Hamilton',
-  'Markham/ Scarborough',
-  'Midtown',
-  'Milton',
-  'Mississauga',
-  'Newmarket',
-  'Niagara',
-  'North York/ Thornhill',
-  'Oakville',
-  'Richmond Hill',
-  'Vaughan',
-  'All Areas',
-] as const;
+import { SERVICE_AREAS } from '@/lib/doulaConstants';
 
 interface CreateDoulaDialogProps {
   onDoulaCreated: () => void;

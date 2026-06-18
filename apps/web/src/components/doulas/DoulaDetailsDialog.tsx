@@ -35,27 +35,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Edit2, Save, Trash2, X } from 'lucide-react';
 import { formatDoulaName } from '@/lib/displayNames';
-
-const SERVICE_AREAS = [
-  'Ajax',
-  'Aurora/ King City',
-  'Barrie',
-  'Brampton',
-  'Downtown',
-  'Etobicoke',
-  'Hamilton',
-  'Markham/ Scarborough',
-  'Midtown',
-  'Milton',
-  'Mississauga',
-  'Newmarket',
-  'Niagara',
-  'North York/ Thornhill',
-  'Oakville',
-  'Richmond Hill',
-  'Vaughan',
-  'All Areas',
-] as const;
+import { SERVICE_AREAS } from '@/lib/doulaConstants';
 
 interface DoulaDetailsDialogProps {
   doula: Doula | null;

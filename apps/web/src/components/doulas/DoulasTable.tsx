@@ -1,24 +1,33 @@
 'use client';
 
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   ColumnDef,
-  ColumnFiltersState,
   SortingState,
   VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { ArrowUpDown, Search } from 'lucide-react';
+import { ArrowUpDown, Filter, Search, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import {
   Table,
   TableBody,
@@ -30,11 +39,65 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { type Doula } from '@/types';
 import { formatDoulaName } from '@/lib/displayNames';
+import {
+  ACTIVE_STATUS_OPTIONS,
+  LEGAL_STATUS_OPTIONS,
+  SERVICE_AREAS,
+  VACCINATION_STATUS_OPTIONS,
+} from '@/lib/doulaConstants';
 
 interface DoulasTableProps {
   data: Doula[];
   onSelectDoula: (doula: Doula) => void;
 }
+
+type DoulaFilters = {
+  search: string;
+  language: string;
+  serviceAreas: string[];
+  activeStatuses: string[];
+  vaccinationStatuses: string[];
+  legalStatuses: string[];
+};
+
+const emptyFilters: DoulaFilters = {
+  search: '',
+  language: '',
+  serviceAreas: [],
+  activeStatuses: [],
+  vaccinationStatuses: [],
+  legalStatuses: [],
+};
+
+const activeStatusLabels = Object.fromEntries(
+  ACTIVE_STATUS_OPTIONS.map((option) => [option.value, option.label])
+);
+const vaccinationStatusLabels = Object.fromEntries(
+  VACCINATION_STATUS_OPTIONS.map((option) => [option.value, option.label])
+);
+const legalStatusLabels = Object.fromEntries(
+  LEGAL_STATUS_OPTIONS.map((option) => [option.value, option.label])
+);
+
+const parseList = (value?: string) =>
+  value
+    ?.split(',')
+    .map((item) => item.trim())
+    .filter(Boolean) ?? [];
+
+const includesText = (value: string | undefined, search: string) =>
+  value?.toLowerCase().includes(search) ?? false;
+
+const toggleValue = (values: string[], value: string) =>
+  values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+
+const filterCount = (filters: DoulaFilters) =>
+  filters.serviceAreas.length +
+  filters.activeStatuses.length +
+  filters.vaccinationStatuses.length +
+  filters.legalStatuses.length +
+  (filters.search.trim() ? 1 : 0) +
+  (filters.language.trim() ? 1 : 0);
 
 // Column definitions
 export const columns: ColumnDef<Doula>[] = [
@@ -241,65 +304,287 @@ export function DoulasTable({ data, onSelectDoula }: DoulasTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'name_preferred', desc: false },
   ]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState('');
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     id: false,
     legal_status: false,
     pet_allergies: false,
   });
+  const [filters, setFilters] = useState<DoulaFilters>(emptyFilters);
+  const activeFilterCount = filterCount(filters);
+
+  const updateFilter = <K extends keyof DoulaFilters>(key: K, value: DoulaFilters[K]) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => setFilters(emptyFilters);
+
+  const filteredData = React.useMemo(() => {
+    const searchTerm = filters.search.trim().toLowerCase();
+    const languageTerm = filters.language.trim().toLowerCase();
+
+    return data.filter((doula) => {
+      if (searchTerm) {
+        const matchesSearch =
+          includesText(doula.name_korean, searchTerm) ||
+          includesText(doula.name_english, searchTerm) ||
+          includesText(doula.name_preferred, searchTerm) ||
+          includesText(doula.email, searchTerm) ||
+          includesText(doula.phone_number, searchTerm) ||
+          includesText(doula.languages, searchTerm) ||
+          includesText(doula.service_area, searchTerm);
+
+        if (!matchesSearch) return false;
+      }
+
+      if (languageTerm && !includesText(doula.languages, languageTerm)) {
+        return false;
+      }
+
+      if (filters.serviceAreas.length > 0) {
+        const areas = parseList(doula.service_area);
+        const hasAllAreas = areas.includes('All Areas');
+        const matchesArea = filters.serviceAreas.some((area) => {
+          if (area === 'All Areas') return hasAllAreas;
+          return hasAllAreas || areas.includes(area);
+        });
+
+        if (!matchesArea) return false;
+      }
+
+      if (filters.activeStatuses.length > 0) {
+        const activeStatus = doula.is_active ? 'active' : 'inactive';
+        if (!filters.activeStatuses.includes(activeStatus)) return false;
+      }
+
+      if (
+        filters.vaccinationStatuses.length > 0 &&
+        !filters.vaccinationStatuses.includes(doula.vaccination_status)
+      ) {
+        return false;
+      }
+
+      if (filters.legalStatuses.length > 0) {
+        if (!doula.legal_status || !filters.legalStatuses.includes(doula.legal_status)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [data, filters]);
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     state: {
       sorting,
-      columnFilters,
-      globalFilter,
       columnVisibility,
-    },
-    globalFilterFn: (row, columnId, filterValue) => {
-      const searchTerm = filterValue.toLowerCase();
-      const doula = row.original;
-      
-      // Search in names, email, languages, service_area
-      return (
-        doula.name_korean?.toLowerCase().includes(searchTerm) ||
-        doula.name_english?.toLowerCase().includes(searchTerm) ||
-        doula.name_preferred?.toLowerCase().includes(searchTerm) ||
-        doula.email?.toLowerCase().includes(searchTerm) ||
-        doula.languages?.toLowerCase().includes(searchTerm) ||
-        doula.service_area?.toLowerCase().includes(searchTerm) ||
-        false
-      );
     },
   });
 
+  const renderFilterCheckbox = (
+    id: string,
+    label: string,
+    selected: boolean,
+    onCheckedChange: () => void
+  ) => (
+    <div key={id} className="flex items-center gap-2">
+      <Checkbox id={id} checked={selected} onCheckedChange={onCheckedChange} />
+      <Label htmlFor={id} className="cursor-pointer text-sm font-normal leading-none">
+        {label}
+      </Label>
+    </div>
+  );
+
+  const removeFilterValue = (key: keyof DoulaFilters, value: string) => {
+    const currentValue = filters[key];
+    if (Array.isArray(currentValue)) {
+      updateFilter(key, currentValue.filter((item) => item !== value) as DoulaFilters[typeof key]);
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Search */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search doulas..."
-            value={globalFilter ?? ''}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-8"
-          />
+    <div className="flex h-full min-h-0 flex-col space-y-4">
+      {/* Search and Filters */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:max-w-sm">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search doulas..."
+              value={filters.search}
+              onChange={(e) => updateFilter('search', e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="shrink-0 justify-start gap-2">
+                <Filter className="h-4 w-4" />
+                <span className="hidden min-[380px]:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="ml-0 sm:ml-1">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="flex w-[min(100vw,440px)] flex-col overflow-hidden sm:max-w-md">
+              <SheetHeader>
+                <SheetTitle>Filter Doulas</SheetTitle>
+                <SheetDescription>
+                  Narrow the list by service coverage, status, credentials, and profile details.
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="min-h-0 flex-1 overflow-y-auto py-4">
+                <div className="space-y-6">
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Languages</h3>
+                    <Input
+                      placeholder="Korean, English, Spanish..."
+                      value={filters.language}
+                      onChange={(e) => updateFilter('language', e.target.value)}
+                    />
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Service Area</h3>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {SERVICE_AREAS.map((area) =>
+                        renderFilterCheckbox(
+                          `filter-service-area-${area}`,
+                          area,
+                          filters.serviceAreas.includes(area),
+                          () => updateFilter('serviceAreas', toggleValue(filters.serviceAreas, area))
+                        )
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Status</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {ACTIVE_STATUS_OPTIONS.map((option) =>
+                        renderFilterCheckbox(
+                          `filter-active-${option.value}`,
+                          option.label,
+                          filters.activeStatuses.includes(option.value),
+                          () => updateFilter('activeStatuses', toggleValue(filters.activeStatuses, option.value))
+                        )
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Vaccination</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      {VACCINATION_STATUS_OPTIONS.map((option) =>
+                        renderFilterCheckbox(
+                          `filter-vaccination-${option.value}`,
+                          option.label,
+                          filters.vaccinationStatuses.includes(option.value),
+                          () =>
+                            updateFilter(
+                              'vaccinationStatuses',
+                              toggleValue(filters.vaccinationStatuses, option.value)
+                            )
+                        )
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">Legal Status</h3>
+                    <div className="grid grid-cols-1 gap-3">
+                      {LEGAL_STATUS_OPTIONS.map((option) =>
+                        renderFilterCheckbox(
+                          `filter-legal-${option.value}`,
+                          option.label,
+                          filters.legalStatuses.includes(option.value),
+                          () => updateFilter('legalStatuses', toggleValue(filters.legalStatuses, option.value))
+                        )
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <SheetFooter className="gap-2 border-t pt-4">
+                <Button type="button" variant="outline" onClick={clearFilters} disabled={activeFilterCount === 0}>
+                  Clear all
+                </Button>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+          {activeFilterCount > 0 && (
+            <Button variant="ghost" onClick={clearFilters} className="justify-start sm:w-auto">
+              Clear all
+            </Button>
+          )}
         </div>
+
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {filters.search.trim() && (
+              <Badge variant="secondary" className="gap-1">
+                Search: {filters.search.trim()}
+                <button type="button" onClick={() => updateFilter('search', '')} aria-label="Remove search filter">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.language.trim() && (
+              <Badge variant="secondary" className="gap-1">
+                Language: {filters.language.trim()}
+                <button type="button" onClick={() => updateFilter('language', '')} aria-label="Remove language filter">
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {filters.serviceAreas.map((area) => (
+              <Badge key={`area-${area}`} variant="secondary" className="gap-1">
+                {area}
+                <button type="button" onClick={() => removeFilterValue('serviceAreas', area)} aria-label={`Remove ${area} filter`}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            {filters.activeStatuses.map((status) => (
+              <Badge key={`active-${status}`} variant="secondary" className="gap-1">
+                {activeStatusLabels[status] ?? status}
+                <button type="button" onClick={() => removeFilterValue('activeStatuses', status)} aria-label={`Remove ${status} filter`}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            {filters.vaccinationStatuses.map((status) => (
+              <Badge key={`vaccination-${status}`} variant="secondary" className="gap-1">
+                {vaccinationStatusLabels[status] ?? status}
+                <button type="button" onClick={() => removeFilterValue('vaccinationStatuses', status)} aria-label={`Remove ${status} filter`}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+            {filters.legalStatuses.map((status) => (
+              <Badge key={`legal-${status}`} variant="secondary" className="gap-1">
+                {legalStatusLabels[status] ?? status}
+                <button type="button" onClick={() => removeFilterValue('legalStatuses', status)} aria-label={`Remove ${status} filter`}>
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block rounded-md border">
-        <ScrollArea className="h-[calc(100vh-280px)]">
+      <div className="hidden min-h-0 flex-1 rounded-md border md:block">
+        <ScrollArea className="h-full">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -346,9 +631,9 @@ export function DoulasTable({ data, onSelectDoula }: DoulasTableProps) {
       </div>
 
       {/* Mobile Cards */}
-      <div className="md:hidden">
-        <ScrollArea className="h-[calc(100vh-280px)]">
-          <div className="space-y-4">
+      <div className="min-h-0 flex-1 md:hidden">
+        <ScrollArea className="h-full">
+          <div className="space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom))]">
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => {
                 const doula = row.original;
@@ -409,7 +694,7 @@ export function DoulasTable({ data, onSelectDoula }: DoulasTableProps) {
 
       <div className="flex items-center py-2">
         <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} doula(s) total
+          Showing {table.getRowModel().rows.length} of {data.length} doula(s)
         </div>
       </div>
     </div>

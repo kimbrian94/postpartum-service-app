@@ -61,7 +61,7 @@ postpartum-service-app
    Navigate to the `apps/api` directory and run:
 
    ```bash
-   uvicorn app.main:app --reload
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 3. **Run the frontend application:**

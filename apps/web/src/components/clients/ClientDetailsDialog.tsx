@@ -50,6 +50,7 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import { ClientActionsSheet } from './ClientActionsSheet';
+import { RESIDENTIAL_AREAS } from '@/lib/doulaConstants';
 
 interface ClientDetailsDialogProps {
   client: Client | null;
@@ -59,9 +60,39 @@ interface ClientDetailsDialogProps {
 }
 
 const SectionHeader = ({ icon: Icon, title }: { icon: React.ElementType; title: string }) => (
-  <div className="flex items-center gap-2 mb-4">
-    <Icon className="h-5 w-5 text-muted-foreground" />
-    <h3 className="text-base font-semibold">{title}</h3>
+  <div className="mb-5 flex items-center gap-3 border-b pb-3">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <Icon className="h-5 w-5" />
+    </span>
+    <h3 className="text-base font-semibold tracking-tight">{title}</h3>
+  </div>
+);
+
+const ClientFormSection = ({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <section className="min-w-0 rounded-lg border bg-muted/25 p-4 shadow-sm sm:p-5">
+    <SectionHeader icon={icon} title={title} />
+    <div className="min-w-0 space-y-4">{children}</div>
+  </section>
+);
+
+const ServiceSubsection = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <div className="space-y-4 rounded-md border-l-4 border-primary/25 bg-background/80 px-4 py-4">
+    <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+    {children}
   </div>
 );
 
@@ -426,11 +457,9 @@ export function ClientDetailsDialog({
         <Separator className="flex-shrink-0" />
         
         <ScrollArea className="flex-1 min-h-0">
-          <div className="space-y-6 px-6 py-4">
+          <div className="space-y-7 px-4 py-5 pb-10 sm:space-y-5 sm:px-6">
             {/* Basic Information */}
-            <div className="space-y-4">
-              <SectionHeader icon={User} title="Basic Information" />
-              
+            <ClientFormSection icon={User} title="Basic Information">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name_english">Name (English)</Label>
@@ -493,30 +522,32 @@ export function ClientDetailsDialog({
                   placeholder="Enter preferred language"
                 />
               </div>
-            </div>
+            </ClientFormSection>
 
             {/* Pregnancy & Delivery Information */}
-            <div className="space-y-4">
-              <SectionHeader icon={Calendar} title="Pregnancy & Delivery" />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+            <ClientFormSection icon={Calendar} title="Pregnancy & Delivery">
+              <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="min-w-0 overflow-hidden space-y-2">
                   <Label htmlFor="due_date">Due Date</Label>
                   <Input
                     id="due_date"
                     type="date"
                     value={formData.due_date?.split('T')[0] || ''}
                     onChange={(e) => handleChange('due_date', e.target.value)}
+                    className="block w-full min-w-0 max-w-full appearance-none overflow-hidden px-1 text-[13px] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:w-3 [&::-webkit-datetime-edit]:mx-auto [&::-webkit-datetime-edit]:p-0 [&::-webkit-datetime-edit]:text-center [&::-webkit-datetime-edit]:text-[13px] sm:px-3 sm:text-sm sm:[&::-webkit-datetime-edit]:text-sm"
+                    style={{ minInlineSize: 0, fontSize: 13, textAlign: 'center' }}
                   />
                 </div>
                 
-                <div className="space-y-2">
+                <div className="min-w-0 overflow-hidden space-y-2">
                   <Label htmlFor="actual_delivery_date">Actual Delivery Date</Label>
                   <Input
                     id="actual_delivery_date"
                     type="date"
                     value={formData.actual_delivery_date?.split('T')[0] || ''}
                     onChange={(e) => handleChange('actual_delivery_date', e.target.value)}
+                    className="block w-full min-w-0 max-w-full appearance-none overflow-hidden px-1 text-[13px] [color-scheme:light] [&::-webkit-calendar-picker-indicator]:m-0 [&::-webkit-calendar-picker-indicator]:w-3 [&::-webkit-datetime-edit]:mx-auto [&::-webkit-datetime-edit]:p-0 [&::-webkit-datetime-edit]:text-center [&::-webkit-datetime-edit]:text-[13px] sm:px-3 sm:text-sm sm:[&::-webkit-datetime-edit]:text-sm"
+                    style={{ minInlineSize: 0, fontSize: 13, textAlign: 'center' }}
                   />
                 </div>
               </div>
@@ -551,20 +582,33 @@ export function ClientDetailsDialog({
                   </Select>
                 </div>
               </div>
-            </div>
+            </ClientFormSection>
 
             {/* Address Information */}
-            <div className="space-y-4">
-              <SectionHeader icon={MapPin} title="Address Information" />
-              
+            <ClientFormSection icon={MapPin} title="Address Information">
               <div className="space-y-2">
                 <Label htmlFor="residential_area">Residential Area</Label>
-                <Input
-                  id="residential_area"
+                <Select
                   value={formData.residential_area || ''}
-                  onChange={(e) => handleChange('residential_area', e.target.value)}
-                  placeholder="Enter residential area"
-                />
+                  onValueChange={(value: string) => handleChange('residential_area', value)}
+                >
+                  <SelectTrigger id="residential_area">
+                    <SelectValue placeholder="Select residential area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formData.residential_area &&
+                      !RESIDENTIAL_AREAS.includes(formData.residential_area as typeof RESIDENTIAL_AREAS[number]) && (
+                        <SelectItem value={formData.residential_area}>
+                          {formData.residential_area}
+                        </SelectItem>
+                      )}
+                    {RESIDENTIAL_AREAS.map((area) => (
+                      <SelectItem key={area} value={area}>
+                        {area}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -577,12 +621,10 @@ export function ClientDetailsDialog({
                   rows={3}
                 />
               </div>
-            </div>
+            </ClientFormSection>
 
             {/* Household Information */}
-            <div className="space-y-4">
-              <SectionHeader icon={Home} title="Household Information" />
-              
+            <ClientFormSection icon={Home} title="Household Information">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="has_pets">Has Pets</Label>
@@ -627,12 +669,10 @@ export function ClientDetailsDialog({
                   rows={2}
                 />
               </div>
-            </div>
+            </ClientFormSection>
 
             {/* Cultural & Food Preferences */}
-            <div className="space-y-4">
-              <SectionHeader icon={Globe} title="Cultural & Food Preferences" />
-              
+            <ClientFormSection icon={Globe} title="Cultural & Food Preferences">
               <div className="space-y-2">
                 <Label htmlFor="cultural_background">Cultural Background</Label>
                 <Input
@@ -670,12 +710,10 @@ export function ClientDetailsDialog({
                   />
                 </div>
               </div>
-            </div>
+            </ClientFormSection>
 
             {/* Referral Information */}
-            <div className="space-y-4">
-              <SectionHeader icon={MessageSquare} title="Referral Information" />
-              
+            <ClientFormSection icon={MessageSquare} title="Referral Information">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="referral_source">Referral Source</Label>
@@ -719,16 +757,12 @@ export function ClientDetailsDialog({
                   />
                 </div>
               </div>
-            </div>
+            </ClientFormSection>
 
             {/* Service Information */}
-            <div className="space-y-6">
-              <SectionHeader icon={Briefcase} title="Service Information" />
-              
+            <ClientFormSection icon={Briefcase} title="Service Information">
               {/* Postpartum Care */}
-              <div className="space-y-4 pl-4 border-l-2 border-muted">
-                <h4 className="font-medium text-sm">Postpartum Care</h4>
-                
+              <ServiceSubsection title="Postpartum Care">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="postpartum_care_requested">Care Requested</Label>
@@ -799,12 +833,10 @@ export function ClientDetailsDialog({
                     />
                   </div>
                 </div>
-              </div>
+              </ServiceSubsection>
 
               {/* Special Postpartum Massage */}
-              <div className="space-y-4 pl-4 border-l-2 border-muted">
-                <h4 className="font-medium text-sm">Special Postpartum Massage</h4>
-                
+              <ServiceSubsection title="Special Postpartum Massage">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="special_massage_requested">Massage Requested</Label>
@@ -833,12 +865,10 @@ export function ClientDetailsDialog({
                     />
                   </div>
                 </div>
-              </div>
+              </ServiceSubsection>
 
               {/* Facial Massage */}
-              <div className="space-y-4 pl-4 border-l-2 border-muted">
-                <h4 className="font-medium text-sm">Facial Massage</h4>
-                
+              <ServiceSubsection title="Facial Massage">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="facial_massage_requested">Massage Requested</Label>
@@ -867,12 +897,10 @@ export function ClientDetailsDialog({
                     />
                   </div>
                 </div>
-              </div>
+              </ServiceSubsection>
 
               {/* RMT Massage */}
-              <div className="space-y-4 pl-4 border-l-2 border-muted">
-                <h4 className="font-medium text-sm">RMT Massage</h4>
-                
+              <ServiceSubsection title="RMT Massage">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="rmt_massage_requested">Massage Requested</Label>
@@ -890,9 +918,11 @@ export function ClientDetailsDialog({
                     </Select>
                   </div>
                 </div>
-              </div>
+              </ServiceSubsection>
+            </ClientFormSection>
 
-              {/* Internal Notes */}
+            {/* Internal Notes */}
+            <ClientFormSection icon={FileText} title="Internal Notes">
               <div className="space-y-2 pt-2">
                 <Label htmlFor="internal_notes">Internal Notes</Label>
                 <Textarea
@@ -903,7 +933,7 @@ export function ClientDetailsDialog({
                   rows={4}
                 />
               </div>
-            </div>
+            </ClientFormSection>
           </div>
         </ScrollArea>
 
